@@ -1,12 +1,12 @@
 [[plugin]]
 id = "mcookinho/osint-tools"
 name = "OSINT Tools"
-version = "1.1.0"
-updated_at = 1789337520
+version = "1.2.0"
+updated_at = 1789342712
 added_at = 1789335185
 author = "mcookinho"
 license = "MIT"
 icon = "user-search"
-description = "Key-free OSINT dashboard: relationship graph by username, e-mail, CPF or phone."
+description = "Key-free OSINT dashboard: check a username across 35 public platforms (social, video, dev) as a relationship graph; e-mail, CPF and phone too."
 plugin_api = 9
 tags = ["osint", "security", "utility", "panel", "launcher"]

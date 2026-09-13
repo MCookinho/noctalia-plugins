@@ -27,9 +27,14 @@ Dashboard (panel) + launcher provider (`/osint ...`) + bar icon (widget
 available information about a target and renders it as a **relationship graph**
 (hub + rings of platform / entity / person nodes; click a node for details):
 
-- **username** — GitHub, GitLab, Hacker News, PyPI, npm, Keybase, Bluesky,
-  Mastodon (webfinger), Telegram (heuristic) and related people via public
-  GitHub followers
+- **username** — presence across 35 public platforms, grouped into a graph:
+  - *social* — X (Twitter), Instagram, TikTok, Threads, YouTube, Reddit, Twitch,
+    Kick, Telegram, Bluesky, Mastodon (multi-instance webfinger), LinkedIn,
+    SoundCloud, Vimeo, Dribbble, Behance, Medium, Pinterest, Patreon, OK.ru,
+    Rumble, DeviantArt, Flickr
+  - *dev & coding* — GitHub (+ related people via public followers), GitLab,
+    Codeberg, Bitbucket, SourceForge, Hacker News, Keybase, PyPI, npm, DEV.to,
+    Hashnode
 - **e-mail** — format check, Gravatar profile, MX records (DoH)
 - **CPF** — brazilian CPF checksum/UF validation
 - **phone** — brazilian phone parsing (DDD/UF/mobile)

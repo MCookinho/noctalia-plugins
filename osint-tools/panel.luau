@@ -365,11 +365,20 @@ local function centerBlock(key, node)
   return ui.row({ key = key, justify = "center", align = "center" }, { node })
 end
 
+local GROUP_ORDER = { "graph.dev", "graph.social", "graph.services" }
+
 local function networkView()
-  local serviceNodes = {}
+  local groups = {}
+  for _, key in ipairs(GROUP_ORDER) do
+    groups[key] = {}
+  end
   for _, card in ipairs(cards) do
     if card.kind ~= "identity" and card.found then
-      table.insert(serviceNodes, {
+      local group = card.group
+      if type(group) ~= "string" or not groups[group] then
+        group = "graph.services"
+      end
+      table.insert(groups[group], {
         key = "card:" .. (card.title .. (card.url or "")),
         title = card.title,
         subtitle = cardSubtitle(card),
@@ -395,8 +404,10 @@ local function networkView()
   end
 
   local children = { centerBlock("hub-center", hubView()) }
-  if #serviceNodes > 0 then
-    table.insert(children, centerBlock("ring-services-center", ringSection("graph.services", serviceNodes)))
+  for _, key in ipairs(GROUP_ORDER) do
+    if #groups[key] > 0 then
+      table.insert(children, centerBlock("ring-" .. key .. "-center", ringSection(key, groups[key])))
+    end
   end
   if #personNodes > 0 then
     table.insert(children, centerBlock("ring-people-center", ringSection("graph.people", personNodes)))
