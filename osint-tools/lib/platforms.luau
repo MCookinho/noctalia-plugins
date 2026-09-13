@@ -28,6 +28,7 @@ local function valueText(value)
 end
 
 local BROWSER_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36"
+local IG_UA = "Instagram 269.0.0.18.85 Android (23/8.0; 420dpi; 1080x2340; unknown; unknown; en_US; 123)"
 local HTML_HEADERS = {
   "User-Agent: " .. BROWSER_UA,
   "Accept-Language: en-US,en;q=0.9",
@@ -459,33 +460,33 @@ local function twitter()
     url = "https://x.com/",
     group = "graph.social",
     check = function(u, cb)
-      local started = util.httpGet("https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names=" .. noctalia.string.urlEncode(u), {
+      local started = util.httpGet("https://publish.x.com/oembed?url=https://x.com/" .. noctalia.string.urlEncode(u), {
         "User-Agent: " .. BROWSER_UA,
       }, nil, function(res)
         local card = { title = "X", glyph = "brand-x", group = "graph.social", url = "https://x.com/" .. u }
+        if res.status == 429 then
+          card.found = false
+          card.note = "note_blocked"
+          cb(card)
+          return
+        end
         local json = util.decodeJson(res.body)
-        if type(json) ~= "table" or #json == 0 or type(json[1]) ~= "table" then
+        if not util.statusOk(res) or type(json) ~= "table" then
           card.found = false
           cb(card)
           return
         end
-        local profile = json[1]
         card.found = true
-        card.url = "https://x.com/" .. profile.screen_name
         local rows = {}
-        table.insert(rows, { label = noctalia.tr("row.name"), value = valueText(profile.name or profile.screen_name) })
-        table.insert(rows, { label = noctalia.tr("row.handle"), value = "@" .. profile.screen_name })
-        if type(profile.description) == "string" and profile.description ~= "" then
-          table.insert(rows, { label = noctalia.tr("row.bio"), value = profile.description })
+        table.insert(rows, { label = noctalia.tr("row.handle"), value = "@" .. u })
+        if type(json.author_name) == "string" and json.author_name ~= "" then
+          table.insert(rows, { label = noctalia.tr("row.name"), value = json.author_name })
         end
-        table.insert(rows, { label = noctalia.tr("row.followers"), value = tostring(profile.followers_count or 0) })
-        if type(profile.following_count) == "number" then
-          table.insert(rows, { label = noctalia.tr("row.following"), value = tostring(profile.following_count) })
+        local htmlText = type(json.html) == "string" and json.html:match("%>([^<]+)%</a>") or nil
+        if htmlText and htmlText ~= "" then
+          table.insert(rows, { label = noctalia.tr("row.bio"), value = htmlText })
         end
         card.rows = rows
-        if type(profile.profile_image_url_https) == "string" and profile.profile_image_url_https ~= "" then
-          card.avatar = profile.profile_image_url_https:gsub("_normal", "_400x400")
-        end
         cb(card)
       end)
       return started
@@ -553,25 +554,57 @@ local function instagram()
     glyph = "brand-instagram",
     url = "https://www.instagram.com/",
     group = "graph.social",
-    check = htmlCheck({
-      name = "Instagram",
-      glyph = "brand-instagram",
-      group = "graph.social",
-      url = function(u) return "https://www.instagram.com/" .. noctalia.string.urlEncode(u) .. "/" end,
-      public_url = function(u) return "https://www.instagram.com/" .. u .. "/" end,
-      rows = function(body, u)
+    check = function(u, cb)
+      local started = util.httpGet("https://i.instagram.com/api/v1/users/web_profile_info/?username=" .. noctalia.string.urlEncode(u), {
+        "User-Agent: " .. IG_UA,
+        "Accept: */*",
+      }, nil, function(res)
+        local card = { title = "Instagram", glyph = "brand-instagram", group = "graph.social", url = "https://www.instagram.com/" .. u .. "/" }
+        if res.status == 400 or res.status == 403 or res.status == 429 then
+          card.found = false
+          card.note = "note_blocked"
+          cb(card)
+          return
+        end
+        local json = util.decodeJson(res.body)
+        local user = type(json) == "table" and type(json.data) == "table" and type(json.data.user) == "table" and json.data.user
+        if not util.statusOk(res) or user == nil or type(user.username) ~= "string" then
+          card.found = false
+          cb(card)
+          return
+        end
+        card.found = true
+        if user.username:lower() ~= string.lower(u) then
+          user = nil
+        end
+        if user == nil then
+          card.found = false
+          cb(card)
+          return
+        end
+        card.avatar = (type(user.profile_pic_url_hd) == "string" and user.profile_pic_url_hd ~= "") and user.profile_pic_url_hd
+          or (type(user.profile_pic_url) == "string" and user.profile_pic_url or nil)
         local rows = {}
-        local fullName = body:match('"full_name%s*:%s*"([^"]*)"')
-        if fullName and fullName ~= "" then
-          table.insert(rows, { label = noctalia.tr("row.display_name"), value = fullName })
+        if type(user.full_name) == "string" and user.full_name ~= "" then
+          table.insert(rows, { label = noctalia.tr("row.display_name"), value = user.full_name })
         end
-        local followers = jsNumber(body, "edge_followed_by")
-        if followers then
-          table.insert(rows, { label = noctalia.tr("row.followers"), value = followers })
+        if type(user.biography) == "string" and user.biography ~= "" then
+          table.insert(rows, { label = noctalia.tr("row.bio"), value = user.biography })
         end
-        return rows
-      end,
-    }),
+        if type(user.edge_followed_by) == "table" and type(user.edge_followed_by.count) == "number" then
+          table.insert(rows, { label = noctalia.tr("row.followers"), value = tostring(user.edge_followed_by.count) })
+        end
+        if type(user.edge_follow) == "table" and type(user.edge_follow.count) == "number" then
+          table.insert(rows, { label = noctalia.tr("row.following"), value = tostring(user.edge_follow.count) })
+        end
+        if type(user.edge_owner_to_timeline_media) == "table" and type(user.edge_owner_to_timeline_media.count) == "number" then
+          table.insert(rows, { label = noctalia.tr("row.posts"), value = tostring(user.edge_owner_to_timeline_media.count) })
+        end
+        card.rows = rows
+        cb(card)
+      end)
+      return started
+    end,
   }
 end
 
