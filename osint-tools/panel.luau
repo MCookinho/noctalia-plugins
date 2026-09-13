@@ -524,7 +524,7 @@ local function analyzeDone()
   end
   lastSummary = noctalia.tr("summary.found", { n = tostring(foundTotal), t = tostring(cardTotal) })
   if #peopleNodes > 0 then
-    lastSummary = lastSummary .. " · " .. noctalia.trp("summary.people", #peopleNodes)
+    lastSummary = lastSummary .. " · " .. noctalia.trp("summary.people", #peopleNodes, {})
   end
   render()
 end

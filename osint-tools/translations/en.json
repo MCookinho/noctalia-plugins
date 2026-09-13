@@ -52,7 +52,7 @@
   "status.miss": "not found",
   "summary.found": "{n} result(s) found out of {t} check(s)",
   "summary.people.one": "1 related person",
-  "summary.people.other": "{n} related people",
+  "summary.people.other": "{count} related people",
   "email.title": "E-mail",
   "email.valid": "Well-formed",
   "email.invalid": "Malformed or invalid",

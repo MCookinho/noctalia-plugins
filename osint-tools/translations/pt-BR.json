@@ -52,7 +52,7 @@
   "status.miss": "não encontrado",
   "summary.found": "{n} resultado(s) encontrado(s) de {t} verificação(ões)",
   "summary.people.one": "1 pessoa relacionada",
-  "summary.people.other": "{n} pessoas relacionadas",
+  "summary.people.other": "{count} pessoas relacionadas",
   "email.title": "E-mail",
   "email.valid": "Formato válido",
   "email.invalid": "Malformado ou inválido",
