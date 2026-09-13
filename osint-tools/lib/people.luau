@@ -4,7 +4,7 @@
 -- person nodes: { login, name, url, avatar }. No API key required.
 local M = {}
 
-local util = require("lib/util.luau")
+local util = require("./util.luau")
 
 local function cleanLogin(login)
   if type(login) ~= "string" then

@@ -5,9 +5,9 @@
 -- Only public, key-free sources are used (Gravatar, DoH-MX).
 local M = {}
 
-local util = require("lib/util.luau")
-local brazil = require("lib/brazil.luau")
-local detect = require("lib/detect.luau")
+local util = require("./util.luau")
+local brazil = require("./brazil.luau")
+local detect = require("./detect.luau")
 
 function M.email(value, ctx)
   return {

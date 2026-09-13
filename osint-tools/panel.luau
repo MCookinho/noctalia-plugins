@@ -7,12 +7,12 @@
 -- Maltego-style relationship graph (hub + rings of platform/entity/person
 -- nodes). Click a node to inspect its details.
 -- Use for legal, ethical research only. Respect privacy laws (e.g. LGPD).
-local util = require("lib/util.luau")
-local detect = require("lib/detect.luau")
-local brazil = require("lib/brazil.luau")
-local platforms = require("lib/platforms.luau")
-local analyzers = require("lib/analyzers.luau")
-local people = require("lib/people.luau")
+local util = require("./lib/util.luau")
+local detect = require("./lib/detect.luau")
+local brazil = require("./lib/brazil.luau")
+local platforms = require("./lib/platforms.luau")
+local analyzers = require("./lib/analyzers.luau")
+local people = require("./lib/people.luau")
 
 local TYPE_OPTIONS = { "auto", "username", "email", "cpf", "phone" }
 local TYPE_GLYPHS = { auto = "wifi", username = "at", email = "mail", cpf = "id", phone = "phone" }

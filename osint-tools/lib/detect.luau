@@ -3,7 +3,7 @@
 -- e-mail, CPF or telephone number.
 local M = {}
 
-local brazil = require("lib/brazil.luau")
+local brazil = require("./brazil.luau")
 
 local EMAIL_PATTERN = "^[%w.+-]+@[%w-]+%.[%w.-]+$"
 

@@ -109,7 +109,7 @@ function M.flattenJson(json, limit)
 end
 
 function M.md5Hex(text)
-  local md5 = require("lib/md5.luau")
+  local md5 = require("./md5.luau")
   return md5.md5(string.lower(text or ""))
 end
 

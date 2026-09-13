@@ -4,7 +4,7 @@
 -- cb receives a card table: { title, glyph, found, rows, url, avatar, note }.
 local M = {}
 
-local util = require("lib/util.luau")
+local util = require("./util.luau")
 
 local function dateFromIso(value)
   if type(value) ~= "string" then
