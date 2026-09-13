@@ -208,7 +208,7 @@ local function avatarCircle(url, size, glyph, found, isSelected)
       fit = "cover",
     })
   end
-  return ui.box({
+  return ui.column({
     width = size,
     height = size,
     radius = math.floor(size / 2),
@@ -216,6 +216,7 @@ local function avatarCircle(url, size, glyph, found, isSelected)
     borderWidth = isSelected and 3 or 2,
     border = isSelected and "primary" or (found and "primary/0.7" or "outline"),
     align = "center",
+    justify = "center",
   }, {
     ui.glyph({ name = glyph or "circle", size = math.floor(size * 0.42), color = found and "primary" or "on_surface_variant" }),
   })
@@ -359,6 +360,10 @@ local function hubView()
   return ui.column({ key = "hub", align = "center", gap = 6 }, children)
 end
 
+local function centerBlock(key, node)
+  return ui.row({ key = key, justify = "center", align = "center" }, { node })
+end
+
 local function networkView()
   local serviceNodes = {}
   for _, card in ipairs(cards) do
@@ -388,20 +393,18 @@ local function networkView()
     })
   end
 
-  local children = { hubView() }
+  local children = { centerBlock("hub-center", hubView()) }
   if #serviceNodes > 0 then
-    table.insert(children, ringSection("graph.services", serviceNodes))
+    table.insert(children, centerBlock("ring-services-center", ringSection("graph.services", serviceNodes)))
   end
   if #personNodes > 0 then
-    table.insert(children, ringSection("graph.people", personNodes))
+    table.insert(children, centerBlock("ring-people-center", ringSection("graph.people", personNodes)))
   end
   if selected then
     table.insert(children, cardView(selected))
   end
 
-  return ui.box({ flexGrow = 1, fill = "surface_variant/0.25", radius = 16, padding = 18 }, {
-    ui.column({ flexGrow = 1, gap = 14, align = "center" }, children),
-  })
+  return ui.column({ flexGrow = 1, fill = "surface_variant/0.25", radius = 16, padding = 18, gap = 14, align = "stretch" }, children)
 end
 
 local function identityRows()
@@ -471,12 +474,10 @@ local function render()
       networkView(),
     }))
   else
-    table.insert(children, ui.box({ flexGrow = 1, fill = "surface_variant/0.4", radius = 14 }, {
-      ui.column({ flexGrow = 1, align = "center", justify = "center", gap = 8 }, {
-        ui.glyph({ name = "user-search", size = 48, color = "on_surface_variant/0.6" }),
-        ui.label({ text = L("empty.title"), fontSize = 14, fontWeight = "medium", color = "on_surface" }),
-        ui.label({ text = L("empty.subtitle"), fontSize = 12, color = "on_surface_variant", textAlign = "center", maxWidth = 380 }),
-      }),
+    table.insert(children, ui.column({ flexGrow = 1, fill = "surface_variant/0.4", radius = 14, align = "center", justify = "center", gap = 8 }, {
+      ui.glyph({ name = "user-search", size = 48, color = "on_surface_variant/0.6" }),
+      ui.label({ text = L("empty.title"), fontSize = 14, fontWeight = "medium", color = "on_surface" }),
+      ui.label({ text = L("empty.subtitle"), fontSize = 12, color = "on_surface_variant", textAlign = "center", maxWidth = 380 }),
     }))
   end
 
