@@ -1,13 +1,13 @@
 id = "mcookinho/osint-tools"
 name = "OSINT Tools"
-version = "1.0.1"
+version = "1.1.0"
 plugin_api = 9
 author = "mcookinho"
 license = "MIT"
 dependencies = []
 tags = ["osint", "security", "utility", "panel", "launcher"]
 icon = "user-search"
-description = "OSINT investigation dashboard: public info by username, e-mail, CPF or phone, straight from the shell."
+description = "Key-free OSINT dashboard: relationship graph by username, e-mail, CPF or phone."
 
 [[widget]]
 id = "bar"
@@ -41,43 +41,3 @@ type = "bool"
 label_key = "settings.site_checks.label"
 description_key = "settings.site_checks.description"
 default = true
-
-[[setting]]
-key = "emailrep_key"
-type = "string"
-label_key = "settings.emailrep_key.label"
-description_key = "settings.emailrep_key.description"
-default = ""
-advanced = true
-
-[[setting]]
-key = "cpf_api_url"
-type = "string"
-label_key = "settings.cpf_api_url.label"
-description_key = "settings.cpf_api_url.description"
-default = ""
-advanced = true
-
-[[setting]]
-key = "cpf_api_token"
-type = "string"
-label_key = "settings.cpf_api_token.label"
-description_key = "settings.cpf_api_token.description"
-default = ""
-advanced = true
-
-[[setting]]
-key = "phone_api_key"
-type = "string"
-label_key = "settings.phone_api_key.label"
-description_key = "settings.phone_api_key.description"
-default = ""
-advanced = true
-
-[[setting]]
-key = "phone_api_url"
-type = "string"
-label_key = "settings.phone_api_url.label"
-description_key = "settings.phone_api_url.description"
-default = "https://apilayer.net/api/validate?access_key={api_key}&number={phone}"
-advanced = true

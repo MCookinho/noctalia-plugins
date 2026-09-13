@@ -24,20 +24,19 @@ See `noctalia msg plugins --help` for all plugin subcommands.
 
 Dashboard (panel) + launcher provider (`/osint ...`) + bar icon (widget
 `mcookinho/osint-tools:bar`) that toggle the dashboard. It gathers publicly
-available information about a target from a:
+available information about a target and renders it as a **relationship graph**
+(hub + rings of platform / entity / person nodes; click a node for details):
 
 - **username** — GitHub, GitLab, Hacker News, PyPI, npm, Keybase, Bluesky,
-  Mastodon (webfinger) and Telegram (heuristic)
-- **e-mail** — format check, Gravatar profile, MX records (DoH), optional
-  EmailRep.io reputation
-- **CPF** — brazilian CPF checksum/UF validation, optional custom API
-- **phone** — brazilian phone parsing (DDD/UF/mobile), optional validation API
-  (numverify / apilayer template)
+  Mastodon (webfinger), Telegram (heuristic) and related people via public
+  GitHub followers
+- **e-mail** — format check, Gravatar profile, MX records (DoH)
+- **CPF** — brazilian CPF checksum/UF validation
+- **phone** — brazilian phone parsing (DDD/UF/mobile)
 
-All sources are public and key-free by default. If you configure a third-party
-API key, that data is fetched directly from the vendor and subject to their
-terms of use. Use the tool only for legal and ethical purposes, and respect
-local privacy laws (e.g. LGPD).
+**No API keys are required.** Every source is public and key-free; no third-party
+credentials are collected or sent anywhere. Use the tool only for legal and
+ethical purposes, and respect local privacy laws (e.g. LGPD).
 
 Open the panel with `Shift+Space` (or your launcher) and type `/osint <query>`,
 or just open it via the Noctalia dashboard.

@@ -2,21 +2,12 @@
 -- High-level analyzers for e-mail, CPF and phone lookups.
 -- Each returns an object with a `start(completion)` method; `completion` fires
 -- once after all of that analyzer's async operations settle.
+-- Only public, key-free sources are used (Gravatar, DoH-MX).
 local M = {}
 
 local util = require("lib/util.luau")
 local brazil = require("lib/brazil.luau")
 local detect = require("lib/detect.luau")
-
-local function yesNo(value)
-  if value == nil then
-    return noctalia.tr("no")
-  end
-  if type(value) == "string" then
-    return value == "true" and noctalia.tr("yes") or noctalia.tr("no")
-  end
-  return value and noctalia.tr("yes") or noctalia.tr("no")
-end
 
 function M.email(value, ctx)
   return {
@@ -37,6 +28,7 @@ function M.email(value, ctx)
         ctx.deliver({
           title = noctalia.tr("email.title"),
           glyph = "mail",
+          kind = "entity",
           found = false,
           rows = { { label = noctalia.tr("row.status"), value = noctalia.tr("email.invalid") } },
         })
@@ -44,6 +36,7 @@ function M.email(value, ctx)
         ctx.deliver({
           title = noctalia.tr("email.title"),
           glyph = "mail",
+          kind = "entity",
           found = true,
           rows = { { label = noctalia.tr("row.status"), value = noctalia.tr("email.valid") } },
         })
@@ -67,6 +60,7 @@ function M.email(value, ctx)
               ctx.deliver({
                 title = "Gravatar",
                 glyph = "user-circle",
+                kind = "platform",
                 found = true,
                 url = "https://www.gravatar.com/" .. hash,
                 avatar = "https://www.gravatar.com/avatar/" .. hash .. "?s=256",
@@ -76,6 +70,7 @@ function M.email(value, ctx)
               ctx.deliver({
                 title = "Gravatar",
                 glyph = "user-circle",
+                kind = "platform",
                 found = false,
                 url = "https://www.gravatar.com/" .. hash,
               })
@@ -109,6 +104,7 @@ function M.email(value, ctx)
               ctx.deliver({
                 title = noctalia.tr("domain.title"),
                 glyph = "world",
+                kind = "entity",
                 found = true,
                 url = "https://" .. domain,
                 rows = { { label = noctalia.tr("row.mail_servers"), value = table.concat(servers, " · ") } },
@@ -117,6 +113,7 @@ function M.email(value, ctx)
               ctx.deliver({
                 title = noctalia.tr("domain.title"),
                 glyph = "world",
+                kind = "entity",
                 found = false,
                 url = "https://" .. domain,
                 note = "note_no_mx",
@@ -125,45 +122,6 @@ function M.email(value, ctx)
             opFinished()
           end)
         end, doneOne)
-
-        if type(ctx.config.emailrep_key) == "string" and ctx.config.emailrep_key ~= "" then
-          internal = internal + 1
-          ctx.dispatch(function(opFinished)
-            local url = "https://emailrep.io/" .. noctalia.string.urlEncode(lean)
-            local headers = { "Accept: application/json", "Key: " .. ctx.config.emailrep_key }
-            return util.httpGet(url, headers, nil, function(res)
-              local json = util.decodeJson(res.body)
-              if type(json) ~= "table" then
-                ctx.deliver({
-                  title = "EmailRep",
-                  glyph = "shield-check",
-                  found = false,
-                  note = "note_api_error",
-                })
-              else
-                local rows = {}
-                table.insert(rows, { label = noctalia.tr("row.reputation"), value = util.toText(json.reputation or "–") })
-                table.insert(rows, { label = noctalia.tr("row.suspicious"), value = yesNo(json.suspicious) })
-                if json.references ~= nil then
-                  table.insert(rows, { label = noctalia.tr("row.references"), value = tostring(json.references) })
-                end
-                local details = type(json.details) == "table" and json.details or {}
-                table.insert(rows, { label = noctalia.tr("row.blacklisted"), value = yesNo(details.blacklisted) })
-                table.insert(rows, { label = noctalia.tr("row.malicious"), value = yesNo(details.malicious_activity) })
-                table.insert(rows, { label = noctalia.tr("row.spam"), value = yesNo(details.spam) })
-                table.insert(rows, { label = noctalia.tr("row.data_breach"), value = yesNo(details.data_breach) })
-                ctx.deliver({
-                  title = "EmailRep",
-                  glyph = "shield-check",
-                  found = true,
-                  url = "https://emailrep.io/" .. lean,
-                  rows = rows,
-                })
-              end
-              opFinished()
-            end)
-          end, doneOne)
-        end
       end
 
       if internal == 0 and not finished then
@@ -192,55 +150,11 @@ function M.cpf(value, ctx)
       ctx.deliver({
         title = "CPF",
         glyph = "id",
+        kind = "entity",
         found = valid,
         rows = rows,
       })
-
-      local internal = 0
-      local finished = false
-      local function settle()
-        if internal <= 0 and not finished then
-          finished = true
-          completion()
-        end
-      end
-      local template = ctx.config.cpf_api_url
-      if type(template) == "string" and template ~= "" then
-        local url = template
-        url = url:gsub("{cpf}", digits)
-        url = url:gsub("{token}", ctx.config.cpf_api_token or "")
-        if url ~= "" then
-          internal = internal + 1
-          ctx.dispatch(function(opFinished)
-            return util.httpGet(url, { "Accept: application/json" }, { allow_insecure_tls = true }, function(res)
-              local json = util.decodeJson(res.body)
-              if type(json) ~= "table" then
-                ctx.deliver({
-                  title = noctalia.tr("cpf.api_title"),
-                  glyph = "server",
-                  found = false,
-                  note = "note_api_error",
-                })
-              else
-                ctx.deliver({
-                  title = noctalia.tr("cpf.api_title"),
-                  glyph = "server",
-                  found = true,
-                  url = url,
-                  rows = util.flattenJson(json, 16),
-                  note = "note_external_api",
-                })
-              end
-              opFinished()
-            end)
-          end, function()
-            internal = internal - 1
-            settle()
-          end)
-        end
-      end
-
-      settle()
+      completion()
       return true
     end,
   }
@@ -251,7 +165,7 @@ function M.phone(value, ctx)
     start = function(completion)
       local parsed = brazil.phoneParse(value)
       local rows = {}
-      local card = { title = noctalia.tr("phone.title"), glyph = "phone", found = parsed ~= nil }
+      local card = { title = noctalia.tr("phone.title"), glyph = "phone", kind = "entity", found = parsed ~= nil }
       if parsed then
         table.insert(rows, { label = noctalia.tr("row.national"), value = parsed.national })
         table.insert(rows, { label = noctalia.tr("row.e164"), value = parsed.e164 })
@@ -272,51 +186,7 @@ function M.phone(value, ctx)
       end
       card.rows = rows
       ctx.deliver(card)
-
-      local key = ctx.config.phone_api_key
-      local template = ctx.config.phone_api_url
-      local internal = 0
-      local finished = false
-      local function settle()
-        if internal <= 0 and not finished then
-          finished = true
-          completion()
-        end
-      end
-      if type(key) == "string" and key ~= "" and type(template) == "string" and template ~= "" and parsed then
-        local url = template
-        url = url:gsub("{phone}", noctalia.string.urlEncode(parsed.e164))
-        url = url:gsub("{api_key}", noctalia.string.urlEncode(key))
-        internal = internal + 1
-        ctx.dispatch(function(opFinished)
-          return util.httpGet(url, { "Accept: application/json" }, nil, function(res)
-            local json = util.decodeJson(res.body)
-            if type(json) ~= "table" then
-              ctx.deliver({
-                title = noctalia.tr("phone.api_title"),
-                glyph = "server",
-                found = false,
-                note = "note_api_error",
-              })
-            else
-              ctx.deliver({
-                title = noctalia.tr("phone.api_title"),
-                glyph = "server",
-                found = true,
-                url = url,
-                rows = util.flattenJson(json, 16),
-                note = "note_external_api",
-              })
-            end
-            opFinished()
-          end)
-        end, function()
-          internal = internal - 1
-          settle()
-        end)
-      end
-
-      settle()
+      completion()
       return true
     end,
   }

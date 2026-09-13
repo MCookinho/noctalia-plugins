@@ -3,16 +3,23 @@
 --
 -- Search by username / e-mail / CPF / phone, querying public key-free sources
 -- (GitHub, GitLab, Hacker News, PyPI, npm, Keybase, Bluesky, Mastodon,
--- Telegram, Gravatar, DoH-MX) and optional user-provided APIs.
+-- Telegram, Gravatar, DoH-MX, GitHub followers). Results are rendered as a
+-- Maltego-style relationship graph (hub + rings of platform/entity/person
+-- nodes). Click a node to inspect its details.
 -- Use for legal, ethical research only. Respect privacy laws (e.g. LGPD).
 local util = require("lib/util.luau")
 local detect = require("lib/detect.luau")
 local brazil = require("lib/brazil.luau")
 local platforms = require("lib/platforms.luau")
 local analyzers = require("lib/analyzers.luau")
+local people = require("lib/people.luau")
 
 local TYPE_OPTIONS = { "auto", "username", "email", "cpf", "phone" }
 local TYPE_GLYPHS = { auto = "wifi", username = "at", email = "mail", cpf = "id", phone = "phone" }
+
+local NODE_W = 116
+local NODE_GAP = 10
+local RING_MAX = 4
 
 local function L(key)
   return noctalia.tr(key)
@@ -25,6 +32,8 @@ local analyzingFinished = false
 local lastSummary = nil
 local cards = {}
 local detected = nil
+local peopleNodes = {}
+local selected = nil
 
 local avatarPaths = {}
 local avatarInflight = {}
@@ -180,6 +189,221 @@ local function cardView(card)
   }, children)
 end
 
+local function shortLine(text, max)
+  local s = tostring(text or "")
+  if #s > max then
+    s = s:sub(1, max - 1) .. "…"
+  end
+  return s
+end
+
+local function avatarCircle(url, size, glyph, found, isSelected)
+  local localPath = url and avatarPaths[url]
+  if localPath then
+    return ui.image({
+      path = localPath,
+      width = size,
+      height = size,
+      radius = math.floor(size / 2),
+      fit = "cover",
+    })
+  end
+  return ui.box({
+    width = size,
+    height = size,
+    radius = math.floor(size / 2),
+    fill = found and "primary/0.16" or "surface_variant/0.5",
+    borderWidth = isSelected and 3 or 2,
+    border = isSelected and "primary" or (found and "primary/0.7" or "outline"),
+    align = "center",
+  }, {
+    ui.glyph({ name = glyph or "circle", size = math.floor(size * 0.42), color = found and "primary" or "on_surface_variant" }),
+  })
+end
+
+local function toggleSelect(card)
+  if selected == card then
+    selected = nil
+  else
+    selected = card
+  end
+  render()
+end
+
+local function graphNode(node)
+  local isSelected = selected == node.card
+  return ui.column({
+    key = node.key,
+    width = NODE_W,
+    align = "center",
+    gap = 4,
+    radius = 12,
+    paddingH = 4,
+    paddingV = 6,
+    onClick = function()
+      toggleSelect(node.card)
+    end,
+  }, {
+    ui.box({ width = 2, height = 12, fill = "outline", opacity = 0.6 }),
+    avatarCircle(node.avatar, 52, node.glyph, node.found, isSelected),
+    ui.label({
+      text = shortLine(node.title, 24),
+      fontSize = 12,
+      fontWeight = node.found and "medium" or "normal",
+      color = node.found and "on_surface" or "on_surface_variant",
+      maxLines = 1,
+    }),
+    ui.label({ text = shortLine(node.subtitle, 28), fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
+  })
+end
+
+local function ringRow(nodes)
+  local total = #nodes * NODE_W + (#nodes - 1) * NODE_GAP
+  local cols = {}
+  for _, node in ipairs(nodes) do
+    table.insert(cols, graphNode(node))
+  end
+  local children = {
+    ui.row({ key = "crown", align = "center", justify = "center" }, {
+      ui.box({ width = total, height = 2, radius = 1, fill = "outline", opacity = 0.8 }),
+    }),
+    ui.row({ key = "nodes", gap = NODE_GAP, align = "center", justify = "center" }, cols),
+  }
+  return ui.column({ align = "center", gap = 4 }, children)
+end
+
+local function ringSection(titleKey, nodes)
+  local children = {
+    ui.label({ text = L(titleKey), fontSize = 11, fontWeight = "medium", color = "on_surface_variant" }),
+  }
+  local chunks = {}
+  for i = 1, #nodes, RING_MAX do
+    local chunk = {}
+    for j = i, math.min(i + RING_MAX - 1, #nodes) do
+      table.insert(chunk, nodes[j])
+    end
+    table.insert(chunks, chunk)
+  end
+  for _, chunk in ipairs(chunks) do
+    table.insert(children, ringRow(chunk))
+  end
+  return ui.column({ key = "ring-" .. titleKey, align = "center", gap = 10 }, children)
+end
+
+local function cardSubtitle(card)
+  if type(card.rows) == "table" then
+    for _, row in ipairs(card.rows) do
+      local value = tostring(row.value or "")
+      if value ~= "" then
+        return shortLine(value, 26)
+      end
+    end
+  end
+  return card.note and L(card.note) or ""
+end
+
+local function personCard(p)
+  local rows = {}
+  table.insert(rows, { label = L("row.handle"), value = p.login, copy = p.login })
+  if type(p.name) == "string" and p.name ~= "" then
+    table.insert(rows, { label = L("row.name"), value = p.name })
+  end
+  table.insert(rows, { label = L("row.source"), value = "GitHub" })
+  if type(p.url) == "string" and p.url ~= "" then
+    table.insert(rows, { label = L("row.url"), value = p.url })
+  end
+  return {
+    title = p.login,
+    glyph = "user",
+    kind = "person",
+    found = true,
+    url = (type(p.url) == "string" and p.url ~= "") and p.url or ("https://github.com/" .. p.login),
+    avatar = p.avatar,
+    rows = rows,
+    note = "note_people",
+  }
+end
+
+local function hubView()
+  local avatarUrl = nil
+  for _, card in ipairs(cards) do
+    if card.found and card.avatar and card.kind ~= "identity" then
+      avatarUrl = card.avatar
+      break
+    end
+  end
+  local parts = {}
+  for _, card in ipairs(cards) do
+    if card.found and card.kind ~= "identity" and #parts < 4 then
+      table.insert(parts, card.title)
+    end
+  end
+  local caption = L("type." .. detected.type)
+  if #parts > 0 then
+    caption = caption .. " · " .. table.concat(parts, " · ")
+  end
+  local children = {
+    avatarCircle(avatarUrl, 72, TYPE_GLYPHS[detected.type] or "at", true, false),
+    ui.label({
+      text = shortLine(detected.display, 44),
+      fontSize = 18,
+      fontWeight = "bold",
+      color = "on_surface",
+      textAlign = "center",
+      maxWidth = 500,
+      maxLines = 2,
+    }),
+    ui.label({ text = caption, fontSize = 11, color = "on_surface_variant", textAlign = "center", maxWidth = 500, maxLines = 2 }),
+    ui.box({ width = 2, height = 24, fill = "outline", opacity = 0.8 }),
+  }
+  return ui.column({ key = "hub", align = "center", gap = 6 }, children)
+end
+
+local function networkView()
+  local serviceNodes = {}
+  for _, card in ipairs(cards) do
+    if card.kind ~= "identity" and card.found then
+      table.insert(serviceNodes, {
+        key = "card:" .. (card.title .. (card.url or "")),
+        title = card.title,
+        subtitle = cardSubtitle(card),
+        glyph = card.glyph or "circle",
+        found = card.found,
+        avatar = card.avatar,
+        card = card,
+      })
+    end
+  end
+  local personNodes = {}
+  for _, p in ipairs(peopleNodes) do
+    local card = personCard(p)
+    table.insert(personNodes, {
+      key = "person:" .. p.login,
+      title = p.login,
+      subtitle = (type(p.name) == "string" and p.name ~= "") and p.name or "GitHub",
+      glyph = "user",
+      found = true,
+      avatar = p.avatar,
+      card = card,
+    })
+  end
+
+  local children = { hubView() }
+  if #serviceNodes > 0 then
+    table.insert(children, ringSection("graph.services", serviceNodes))
+  end
+  if #personNodes > 0 then
+    table.insert(children, ringSection("graph.people", personNodes))
+  end
+  if selected then
+    table.insert(children, cardView(selected))
+  end
+
+  return ui.box({ flexGrow = 1, fill = "surface_variant/0.25", radius = 16, padding = 18 }, {
+    ui.column({ flexGrow = 1, gap = 14, align = "center" }, children),
+  })
+end
+
 local function identityRows()
   local rows = {}
   if detected then
@@ -243,11 +467,9 @@ local function render()
   }
 
   if #cards > 0 then
-    local scrollChildren = {}
-    for _, card in ipairs(cards) do
-      table.insert(scrollChildren, cardView(card))
-    end
-    table.insert(children, ui.scroll({ flexGrow = 1, gap = 10, align = "stretch" }, scrollChildren))
+    table.insert(children, ui.scroll({ flexGrow = 1, gap = 10, align = "stretch" }, {
+      networkView(),
+    }))
   else
     table.insert(children, ui.box({ flexGrow = 1, fill = "surface_variant/0.4", radius = 14 }, {
       ui.column({ flexGrow = 1, align = "center", justify = "center", gap = 8 }, {
@@ -266,11 +488,6 @@ end
 local function loadConfig()
   return {
     site_checks = noctalia.getConfig("site_checks") ~= false,
-    emailrep_key = noctalia.getConfig("emailrep_key") or "",
-    cpf_api_url = noctalia.getConfig("cpf_api_url") or "",
-    cpf_api_token = noctalia.getConfig("cpf_api_token") or "",
-    phone_api_key = noctalia.getConfig("phone_api_key") or "",
-    phone_api_url = noctalia.getConfig("phone_api_url") or "https://apilayer.net/api/validate?access_key={api_key}&number={phone}",
   }
 end
 
@@ -298,12 +515,17 @@ local function analyzeDone()
   local foundTotal = 0
   local cardTotal = 0
   for _, card in ipairs(cards) do
-    cardTotal = cardTotal + 1
-    if card.found then
-      foundTotal = foundTotal + 1
+    if card.kind ~= "identity" then
+      cardTotal = cardTotal + 1
+      if card.found then
+        foundTotal = foundTotal + 1
+      end
     end
   end
   lastSummary = noctalia.tr("summary.found", { n = tostring(foundTotal), t = tostring(cardTotal) })
+  if #peopleNodes > 0 then
+    lastSummary = lastSummary .. " · " .. noctalia.trp("summary.people", #peopleNodes)
+  end
   render()
 end
 
@@ -315,6 +537,8 @@ local function analyze()
 
   cards = {}
   detected = nil
+  peopleNodes = {}
+  selected = nil
   analyzing = true
   analyzingFinished = false
   lastSummary = nil
@@ -351,6 +575,7 @@ local function analyze()
   end
 
   local function deliver(card)
+    card.kind = card.kind or "platform"
     table.insert(cards, card)
     if card.avatar then
       requestAvatar(card.avatar)
@@ -385,6 +610,7 @@ local function analyze()
   deliver({
     title = L("identity.title"),
     glyph = TYPE_GLYPHS[resolvedType] or "search",
+    kind = "identity",
     found = true,
     rows = identityRows(),
   })
@@ -395,6 +621,19 @@ local function analyze()
         dispatch(function(opFinished)
           return platform.check(value, function(card)
             deliver(card)
+            opFinished()
+          end)
+        end)
+      end
+      for _, personCheck in ipairs(people.buildUsernamePeopleChecks()) do
+        dispatch(function(opFinished)
+          return personCheck.check(value, function(list)
+            for _, p in ipairs(list) do
+              table.insert(peopleNodes, p)
+              if p.avatar then
+                requestAvatar(p.avatar)
+              end
+            end
             opFinished()
           end)
         end)
@@ -456,6 +695,8 @@ function onClearClicked()
   raw = ""
   cards = {}
   detected = nil
+  peopleNodes = {}
+  selected = nil
   lastSummary = nil
   render()
 end
