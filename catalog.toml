@@ -1,8 +1,8 @@
 [[plugin]]
 id = "mcookinho/osint-tools"
 name = "OSINT Tools"
-version = "1.0.0"
-updated_at = 1789335185
+version = "1.0.1"
+updated_at = 1789335835
 added_at = 1789335185
 author = "mcookinho"
 license = "MIT"

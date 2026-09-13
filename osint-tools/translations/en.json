@@ -96,5 +96,7 @@
   "settings.phone_api_key.label": "Phone validation API key (optional)",
   "settings.phone_api_key.description": "e.g. numverify / apilayer access key. Leave empty to skip.",
   "settings.phone_api_url.label": "Phone validation API URL (optional)",
-  "settings.phone_api_url.description": "Template with {phone} and {api_key} placeholders."
+  "settings.phone_api_url.description": "Template with {phone} and {api_key} placeholders.",
+  "settings.widget_glyph.label": "Bar icon",
+  "settings.widget_glyph.description": "Glyph shown in the bar for this plugin."
 }

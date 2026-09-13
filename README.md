@@ -22,7 +22,8 @@ See `noctalia msg plugins --help` for all plugin subcommands.
 
 ### OSINT Tools
 
-Dashboard (panel) + launcher provider (`/osint ...`) that gathers publicly
+Dashboard (panel) + launcher provider (`/osint ...`) + bar icon (widget
+`mcookinho/osint-tools:bar`) that toggle the dashboard. It gathers publicly
 available information about a target from a:
 
 - **username** — GitHub, GitLab, Hacker News, PyPI, npm, Keybase, Bluesky,

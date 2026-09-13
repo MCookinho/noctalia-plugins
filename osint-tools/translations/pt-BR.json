@@ -96,5 +96,7 @@
   "settings.phone_api_key.label": "Chave da API de validação de telefone (opcional)",
   "settings.phone_api_key.description": "ex.: chave do numverify / apilayer. Deixe vazio para pular.",
   "settings.phone_api_url.label": "URL da API de validação de telefone (opcional)",
-  "settings.phone_api_url.description": "Template com os placeholders {phone} e {api_key}."
+  "settings.phone_api_url.description": "Template com os placeholders {phone} e {api_key}.",
+  "settings.widget_glyph.label": "Ícone na barra",
+  "settings.widget_glyph.description": "Glifo exibido na barra para este plugin."
 }

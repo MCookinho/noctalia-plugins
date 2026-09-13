@@ -1,6 +1,6 @@
 id = "mcookinho/osint-tools"
 name = "OSINT Tools"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 9
 author = "mcookinho"
 license = "MIT"
@@ -8,6 +8,17 @@ dependencies = []
 tags = ["osint", "security", "utility", "panel", "launcher"]
 icon = "user-search"
 description = "OSINT investigation dashboard: public info by username, e-mail, CPF or phone, straight from the shell."
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.widget_glyph.label"
+  description_key = "settings.widget_glyph.description"
+  default = "user-search"
 
 [[panel]]
 id = "dashboard"
