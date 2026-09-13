@@ -34,7 +34,7 @@ end
 local function checkDigit(base)
   local sum = 0
   for i = 1, #base do
-    sum = sum + tonumber(base:sub(i, i)) * (#base + 1 - i)
+    sum = sum + tonumber(base:sub(i, i)) * (#base + 2 - i)
   end
   local rest = (sum * 10) % 11
   if rest == 10 then
@@ -48,7 +48,7 @@ function M.cpfIsValid(digits)
   if #digits ~= 11 then
     return false
   end
-  if digits:match("^(%d)%1*$") then
+  if string.rep(digits:sub(1, 1), 11) == digits then
     return false
   end
   local d1 = checkDigit(digits:sub(1, 9))

@@ -30,13 +30,15 @@ function M.detect(raw)
 
   local digits = brazil.onlyDigits(value)
 
-  if #digits == 11 and M.isAllDigits(value) then
+  if #digits == 11 then
     local ddd = digits:sub(1, 2)
     local number = digits:sub(3)
     if #number == 9 and number:sub(1, 1) == "9" and brazil.dddUf(ddd) ~= nil then
       return "phone"
     end
-    return "cpf"
+    if brazil.cpfIsValid(digits) then
+      return "cpf"
+    end
   end
 
   if #digits >= 10 and #digits <= 13 and M.hasPhoneChars(value) then

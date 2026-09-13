@@ -34,6 +34,7 @@ local cards = {}
 local detected = nil
 local peopleNodes = {}
 local selected = nil
+local render = nil
 
 local avatarPaths = {}
 local avatarInflight = {}
@@ -424,7 +425,7 @@ local function buildTypeOptions()
   return out
 end
 
-local function render()
+render = function()
   local typeOptions = buildTypeOptions()
   local children = {
     ui.row({ align = "center", justify = "space_between", gap = 8 }, {
@@ -561,17 +562,17 @@ local function analyze()
   local pending = 0
   local looping = true
 
-  local function fulfill()
-    pending = pending - 1
-    if not looping then
-      maybeFinish()
-    end
-  end
-
   local function maybeFinish()
     if pending <= 0 and not analyzingFinished then
       analyzingFinished = true
       analyzeDone()
+    end
+  end
+
+  local function fulfill()
+    pending = pending - 1
+    if not looping then
+      maybeFinish()
     end
   end
 
