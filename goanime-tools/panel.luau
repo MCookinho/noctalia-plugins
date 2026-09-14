@@ -5,7 +5,7 @@
 -- (Watch) or start a headless download from here: single episode, a range,
 -- or the whole show - with chosen source, quality and output folder.
 -- Type `/goanime <query>` in the launcher to open this panel pre-filled.
-local util = __req("util")
+local util = require("./lib/util.luau")
 
 local SOURCES = { "all", "allanime", "animefire", "goyabu" }
 local SOURCE_KEYS = { "source.all", "source.allanime", "source.animefire", "source.goyabu" }
