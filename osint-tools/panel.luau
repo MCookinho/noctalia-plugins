@@ -126,7 +126,17 @@ local function rowView(row)
     ui.label({ text = row.label .. ":", fontSize = 12, color = "on_surface_variant", width = 132 }),
     ui.label({ text = tostring(row.value or ""), fontSize = 12, color = "on_surface", maxLines = 6, flexGrow = 1 }),
   }
-  if row.copy ~= nil then
+  if row.open then
+    children[#children + 1] = ui.button({
+      glyph = "external-link",
+      glyphSize = 12,
+      variant = "ghost",
+      tooltip = row.open,
+      onClick = function()
+        openUrl(row.open)
+      end,
+    })
+  elseif row.copy ~= nil then
     children[#children + 1] = copyButton(row.copy)
   end
   return ui.row({ gap = 8, align = "center" }, children)
@@ -367,7 +377,7 @@ local function centerBlock(key, node)
   return ui.row({ key = key, justify = "center", align = "center" }, { node })
 end
 
-local GROUP_ORDER = { "graph.dev", "graph.social", "graph.game", "graph.services" }
+local GROUP_ORDER = { "graph.dev", "graph.social", "graph.game", "graph.linked", "graph.services" }
 
 local function networkView()
   local groups = {}

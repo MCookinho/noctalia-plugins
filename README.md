@@ -38,7 +38,9 @@ available information about a target and renders it as a **relationship graph**
     access allows it)
   - **related people** — GitHub followers, Mastodon following, and accounts
     mentioned in public Instagram posts
-- **e-mail** — format check, Gravatar profile, MX records (DoH)
+- **e-mail** — format check, Gravatar profile, and the gravatar-linked social
+  profiles shown as a *linked* ring (email → Gravatar → X/IG/GitHub/YouTube…),
+  MX records (DoH)
 - **CPF** — brazilian CPF checksum/UF validation
 - **phone** — brazilian phone parsing (DDD/UF/mobile)
 

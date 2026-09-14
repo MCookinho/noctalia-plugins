@@ -9,6 +9,38 @@ local util = require("./util.luau")
 local brazil = require("./brazil.luau")
 local detect = require("./detect.luau")
 
+local function glyphForHost(host)
+  local h = host:lower()
+  if h:find("twitter") or h:find("x.co", 1, true) or h == "x.com" then
+    return "brand-x"
+  end
+  if h:find("instagram", 1, true) then
+    return "brand-instagram"
+  end
+  if h:find("github", 1, true) then
+    return "brand-github"
+  end
+  if h:find("facebook", 1, true) then
+    return "brand-facebook"
+  end
+  if h:find("linkedin", 1, true) then
+    return "brand-linkedin"
+  end
+  if h:find("youtube", 1, true) then
+    return "brand-youtube"
+  end
+  if h:find("tiktok", 1, true) then
+    return "brand-tiktok"
+  end
+  if h:find("twitch", 1, true) then
+    return "brand-twitch"
+  end
+  if h:find("discord", 1, true) then
+    return "brand-discord"
+  end
+  return "link"
+end
+
 function M.email(value, ctx)
   return {
     start = function(completion)
@@ -55,7 +87,10 @@ function M.email(value, ctx)
                 table.insert(rows, { label = noctalia.tr("row.display_name"), value = name })
               end
               if type(entry.profileUrl) == "string" and entry.profileUrl ~= "" then
-                table.insert(rows, { label = noctalia.tr("row.url"), value = entry.profileUrl })
+                table.insert(rows, { label = noctalia.tr("row.url"), value = entry.profileUrl, open = entry.profileUrl })
+              end
+              if type(entry.aboutMe) == "string" and entry.aboutMe ~= "" then
+                table.insert(rows, { label = noctalia.tr("row.bio"), value = entry.aboutMe })
               end
               ctx.deliver({
                 title = "Gravatar",
@@ -66,6 +101,28 @@ function M.email(value, ctx)
                 avatar = "https://www.gravatar.com/avatar/" .. hash .. "?s=256",
                 rows = rows,
               })
+              if type(entry.urls) == "table" then
+                for i, link in ipairs(entry.urls) do
+                  if type(link) == "table" and type(link.value) == "string" then
+                    local linkValue = link.value
+                    local host = (linkValue:match("://([^/]+)") or ""):lower():gsub("^www%.", "")
+                    if host ~= "" then
+                      local label = (type(link.title) == "string" and link.title ~= "") and link.title or host
+                      ctx.deliver({
+                        title = label,
+                        glyph = glyphForHost(host),
+                        kind = "platform",
+                        group = "graph.linked",
+                        found = true,
+                        url = linkValue,
+                        rows = {
+                          { label = noctalia.tr("row.through"), value = label, open = linkValue },
+                        },
+                      })
+                    end
+                  end
+                end
+              end
             else
               ctx.deliver({
                 title = "Gravatar",

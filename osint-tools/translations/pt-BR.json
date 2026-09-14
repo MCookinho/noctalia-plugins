@@ -96,5 +96,7 @@
   "settings.site_checks.label": "Verificar presença de usuário em plataformas públicas",
   "settings.site_checks.description": "Social, vídeo, código e games: X, Instagram, TikTok, Threads, YouTube, Reddit, Twitch, Kick, Telegram, Bluesky, Mastodon, LinkedIn, SoundCloud, Vimeo, Dribbble, Behance, Medium, Pinterest, Patreon, OK.ru, Rumble, DeviantArt, Flickr, Steam (perfil + jogos), GitHub, GitLab, Codeberg, Bitbucket, SourceForge, Hacker News, Keybase, PyPI, npm, DEV.to e Hashnode. Lista pessoas relacionadas via seguidores do GitHub, perfis seguidos no Mastodon e menções em publicações do Instagram.",
   "settings.widget_glyph.label": "Ícone na barra",
-  "settings.widget_glyph.description": "Glifo exibido na barra para este plugin."
+  "settings.widget_glyph.description": "Glifo exibido na barra para este plugin.",
+  "graph.linked": "Ligados via Gravatar",
+  "row.through": "Ligado via"
 }

@@ -7,7 +7,7 @@ license = "MIT"
 dependencies = []
 tags = ["osint", "security", "utility", "panel", "launcher"]
 icon = "user-search"
-description = "Key-free OSINT dashboard: check a username across 35 public platforms (social, video, dev, games) and map related people (GitHub followers, Mastodon following, Instagram mentions) as a relationship graph; e-mail, CPF and phone too."
+description = "Key-free OSINT dashboard: check a username across 35 public platforms (social, video, dev, games), map related people (GitHub followers, Mastodon following, Instagram mentions) and link a Gravatar e-mail to its social profiles; CPF and phone too."
 
 [[widget]]
 id = "bar"
