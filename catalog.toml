@@ -10,3 +10,16 @@ icon = "user-search"
 description = "Key-free OSINT dashboard: check a username across 35 public platforms (social, video, dev, games), map related people (GitHub followers, Mastodon following, Instagram mentions), link a Gravatar e-mail to its social profiles, enrich brazilian phones (DDD/city/region/line type) and validate CPF."
 plugin_api = 9
 tags = ["osint", "security", "utility", "panel", "launcher"]
+
+[[plugin]]
+id = "mcookinho/goanime-tools"
+name = "GoAnime Tools"
+version = "1.0.0"
+updated_at = 1789347310
+added_at = 1789347310
+author = "mcookinho"
+license = "MIT"
+icon = "movie"
+description = "Drive the GoAnime CLI from a pretty panel: search, watch or download episodes/ranges/whole shows with chosen source and quality."
+plugin_api = 9
+tags = ["anime", "media", "download", "utility", "panel", "launcher"]

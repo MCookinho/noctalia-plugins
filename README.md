@@ -53,3 +53,20 @@ ethical purposes, and respect local privacy laws (e.g. LGPD).
 
 Open the panel with `Shift+Space` (or your launcher) and type `/osint <query>`,
 or just open it via the Noctalia dashboard.
+
+## GoAnime Tools (`mcookinho/goanime-tools`)
+
+Pretty panel around the [GoAnime CLI](https://github.com/alvarorichard/GoAnime).
+
+- Type `/goanime <query>` in the launcher to open the panel pre-filled.
+- Pick source (AllAnime / AnimeFire / Goyabu / all), quality and episode
+  selector, then:
+  - **Watch** — opens GoAnime's own picker in a terminal (streaming needs its
+    TUI).
+  - **Download** — single episode, a range (`1-5`) or everything (`all`),
+    running headless in the background from the panel.
+- History of past searches is stored per-plugin; the downloads folder opens
+  automatically when a download starts (toggleable).
+- Settings: default source, default quality, download folder.
+
+Requires the `goanime` binary on `PATH`.
