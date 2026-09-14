@@ -232,12 +232,21 @@ function M.phone(value, ctx)
         if parsed.uf then
           table.insert(rows, { label = noctalia.tr("row.uf"), value = parsed.uf })
         end
-        if parsed.isMobile ~= nil then
-          table.insert(rows, {
-            label = noctalia.tr("row.line_type"),
-            value = parsed.isMobile and noctalia.tr("phone.mobile") or noctalia.tr("phone.landline"),
-          })
+        if parsed.city then
+          table.insert(rows, { label = noctalia.tr("row.city"), value = parsed.city })
         end
+        if parsed.region then
+          table.insert(rows, { label = noctalia.tr("row.region"), value = noctalia.tr("region." .. parsed.region) })
+        end
+        local classKey = parsed.class == "mobile" and "phone.mobile"
+          or parsed.class == "landline" and "phone.landline"
+          or parsed.class == "toll_free" and "phone.toll_free"
+          or parsed.class == "commercial" and "phone.commercial"
+          or parsed.class == "special" and "phone.special"
+        if classKey then
+          table.insert(rows, { label = noctalia.tr("row.line_type"), value = noctalia.tr(classKey) })
+        end
+        card.note = "note_phone_owner"
       else
         rows[1] = { label = noctalia.tr("row.status"), value = noctalia.tr("phone.invalid") }
       end

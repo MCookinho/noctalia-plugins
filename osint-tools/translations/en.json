@@ -98,5 +98,16 @@
   "settings.widget_glyph.label": "Bar icon",
   "settings.widget_glyph.description": "Glyph shown in the bar for this plugin.",
   "graph.linked": "Linked via Gravatar",
-  "row.through": "Linked via"
+  "row.through": "Linked via",
+  "row.city": "Main city",
+  "row.region": "Region",
+  "phone.toll_free": "Toll-free (0800)",
+  "phone.commercial": "Company line",
+  "phone.special": "Service number",
+  "region.norte": "North",
+  "region.nordeste": "Northeast",
+  "region.sudeste": "Southeast",
+  "region.sul": "South",
+  "region.centro-oeste": "Central-West",
+  "note_phone_owner": "Owner, carrier and Social/WhatsApp presence require a paid keyed provider — there is no key-free source."
 }

@@ -42,7 +42,10 @@ available information about a target and renders it as a **relationship graph**
   profiles shown as a *linked* ring (email → Gravatar → X/IG/GitHub/YouTube…),
   MX records (DoH)
 - **CPF** — brazilian CPF checksum/UF validation
-- **phone** — brazilian phone parsing (DDD/UF/mobile)
+- **phone** — how a brazilian phone types E.164/national, DDD, UF, main city
+  for the DDD, region, and line type (mobile / landline / 0800 / company /
+  service). Owner/carrier/WhatsApp presence need a paid provider: the card says
+  so instead of faking data.
 
 **No API keys are required.** Every source is public and key-free; no third-party
 credentials are collected or sent anywhere. Use the tool only for legal and

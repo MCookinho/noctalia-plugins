@@ -98,5 +98,16 @@
   "settings.widget_glyph.label": "Ícone na barra",
   "settings.widget_glyph.description": "Glifo exibido na barra para este plugin.",
   "graph.linked": "Ligados via Gravatar",
-  "row.through": "Ligado via"
+  "row.through": "Ligado via",
+  "row.city": "Cidade principal",
+  "row.region": "Região",
+  "phone.toll_free": "Serviço gratuito (0800)",
+  "phone.commercial": "Linha empresarial",
+  "phone.special": "Número de serviço",
+  "region.norte": "Norte",
+  "region.nordeste": "Nordeste",
+  "region.sudeste": "Sudeste",
+  "region.sul": "Sul",
+  "region.centro-oeste": "Centro-Oeste",
+  "note_phone_owner": "Titular, operadora e presença em WhatsApp/redes exigem provedor pago com chave — não existe fonte key-free."
 }

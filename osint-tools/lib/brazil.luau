@@ -82,6 +82,65 @@ function M.cpfFormat(digits)
     digits:sub(1, 3), digits:sub(4, 6), digits:sub(7, 9), digits:sub(10, 11))
 end
 
+local DDD_CITY = {
+  ["11"] = "São Paulo", ["12"] = "São José dos Campos", ["13"] = "Santos",
+  ["14"] = "Bauru", ["15"] = "Sorocaba", ["16"] = "Ribeirão Preto",
+  ["17"] = "São José do Rio Preto", ["18"] = "Presidente Prudente", ["19"] = "Campinas",
+  ["21"] = "Rio de Janeiro", ["22"] = "Campos dos Goytacazes",
+  ["27"] = "Vitória", ["31"] = "Belo Horizonte", ["32"] = "Juiz de Fora",
+  ["33"] = "Ipatinga", ["34"] = "Uberlândia", ["37"] = "Divinópolis", ["38"] = "Uberaba",
+  ["41"] = "Curitiba", ["42"] = "Ponta Grossa", ["43"] = "Londrina",
+  ["44"] = "Maringá", ["45"] = "Cascavel", ["46"] = "Francisco Beltrão",
+  ["47"] = "Joinville", ["48"] = "Florianópolis", ["49"] = "Chapecó",
+  ["51"] = "Porto Alegre", ["53"] = "Pelotas", ["54"] = "Passo Fundo", ["55"] = "Santa Maria",
+  ["61"] = "Brasília", ["62"] = "Goiânia", ["63"] = "Palmas", ["64"] = "Rio Verde",
+  ["65"] = "Cuiabá", ["66"] = "Rondonópolis", ["67"] = "Campo Grande",
+  ["68"] = "Rio Branco", ["69"] = "Porto Velho",
+  ["71"] = "Salvador", ["73"] = "Ilhéus", ["74"] = "Vitória da Conquista",
+  ["75"] = "Feira de Santana", ["77"] = "Barreiras", ["79"] = "Aracaju",
+  ["81"] = "Recife", ["82"] = "Maceió", ["83"] = "João Pessoa", ["84"] = "Natal",
+  ["85"] = "Fortaleza", ["86"] = "Teresina", ["87"] = "Petrolina",
+  ["88"] = "Juazeiro do Norte", ["89"] = "Picos",
+  ["91"] = "Belém", ["92"] = "Manaus", ["95"] = "Boa Vista", ["96"] = "Macapá",
+  ["98"] = "São Luís", ["99"] = "Imperatriz",
+}
+
+local UF_REGION = {
+  AC = "norte", AL = "nordeste", AP = "norte", AM = "norte", BA = "nordeste",
+  CE = "nordeste", DF = "centro-oeste", ES = "sudeste", GO = "centro-oeste",
+  MA = "nordeste", MT = "centro-oeste", MS = "centro-oeste", MG = "sudeste",
+  PA = "norte", PB = "nordeste", PR = "sul", PE = "nordeste", PI = "nordeste",
+  RJ = "sudeste", RN = "nordeste", RS = "sul", RO = "norte", RR = "norte",
+  SC = "sul", SP = "sudeste", SE = "nordeste", TO = "norte",
+}
+
+function M.dddCity(ddd)
+  return DDD_CITY[ddd]
+end
+
+function M.ufRegion(uf)
+  return UF_REGION[uf]
+end
+
+local function phoneClass(digits)
+  if digits:sub(1, 3) == "080" then
+    return "toll_free"
+  end
+  if digits:sub(1, 4) == "0300" or digits:sub(1, 4) == "0500" or digits:sub(1, 4) == "0900" then
+    return "commercial"
+  end
+  if #digits >= 10 then
+    local p = digits:sub(1, 4)
+    if p == "4003" or p == "4004" or p == "3003" or p == "3004" or p == "4090" then
+      return "commercial"
+    end
+  end
+  if #digits >= 2 and digits:sub(1, 2) == "19" then
+    return "special"
+  end
+  return nil
+end
+
 function M.phoneParse(raw)
   local digits = M.onlyDigits(raw)
   if #digits == 0 then
@@ -112,9 +171,12 @@ function M.phoneParse(raw)
         ddd = ddd,
         number = number,
         isMobile = isMobile,
+        class = isMobile and "mobile" or "landline",
         national = national,
         e164 = "+55" .. ddd .. number,
         uf = M.dddUf(ddd),
+        city = M.dddCity(ddd),
+        region = M.ufRegion(M.dddUf(ddd)),
       }
     end
   end
@@ -124,6 +186,7 @@ function M.phoneParse(raw)
       ok = true,
       country = "?",
       isMobile = nil,
+      class = phoneClass(digits),
       national = digits,
       e164 = "+" .. digits,
       uf = nil,
