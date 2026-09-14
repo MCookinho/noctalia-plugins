@@ -651,7 +651,8 @@ local function tiktok()
       url = function(u) return "https://www.tiktok.com/@" .. noctalia.string.urlEncode(u) end,
       public_url = function(u) return "https://www.tiktok.com/@" .. u end,
       verify = function(body, u)
-        return body:lower():find('"uniqueid":"' .. u:lower(), 1, true) ~= nil
+        local needle = '"uniqueId":"' .. u:lower()
+        return body:find(needle, 1, true) ~= nil
       end,
       rows = function(body)
         local rows = {}
@@ -666,38 +667,6 @@ local function tiktok()
         local likes = jsNumber(body, "heartCount")
         if likes then
           table.insert(rows, { label = noctalia.tr("row.likes"), value = likes })
-        end
-        return rows
-      end,
-    }),
-  }
-end
-
-local function threads()
-  return {
-    id = "threads",
-    name = "Threads",
-    glyph = "brand-threads",
-    url = "https://www.threads.net/",
-    group = "graph.social",
-    check = htmlCheck({
-      name = "Threads",
-      glyph = "brand-threads",
-      group = "graph.social",
-      url = function(u) return "https://www.threads.net/@" .. noctalia.string.urlEncode(u) end,
-      public_url = function(u) return "https://www.threads.net/@" .. u end,
-      rows = function(body)
-        local rows = {}
-        local followers = jsNumber(body, "follower_count")
-        if not followers then
-          followers = jsNumber(body, "followers_count")
-        end
-        if followers then
-          table.insert(rows, { label = noctalia.tr("row.followers"), value = followers })
-        end
-        local fullName = body:match('"displayName%s*:%s*"([^"]*)"')
-        if fullName and fullName ~= "" then
-          table.insert(rows, { label = noctalia.tr("row.display_name"), value = fullName })
         end
         return rows
       end,
@@ -1180,7 +1149,6 @@ function M.buildUsernameChecks()
     twitter,
     instagram,
     tiktok,
-    threads,
     youtube,
     reddit,
     twitch,

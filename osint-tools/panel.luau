@@ -33,6 +33,7 @@ local lastSummary = nil
 local cards = {}
 local detected = nil
 local peopleNodes = {}
+local usernameQuery = ""
 local selected = nil
 local render = nil
 
@@ -524,8 +525,50 @@ local function displayFor(detectedType, value)
   return value
 end
 
+local function deriveThreads()
+  if usernameQuery == "" then
+    return
+  end
+  local foundInsta = false
+  for _, card in ipairs(cards) do
+    if card.title == "Instagram" and card.found then
+      foundInsta = true
+      break
+    end
+  end
+  if not foundInsta then
+    return
+  end
+  for _, card in ipairs(cards) do
+    if card.title == "Threads" then
+      return
+    end
+  end
+  local avatar = nil
+  for _, card in ipairs(cards) do
+    if card.title == "Instagram" and card.found and type(card.avatar) == "string" then
+      avatar = card.avatar
+      break
+    end
+  end
+  table.insert(cards, {
+    title = "Threads",
+    glyph = "brand-threads",
+    kind = "platform",
+    group = "graph.social",
+    found = true,
+    url = "https://www.threads.net/@" .. usernameQuery .. "/",
+    avatar = avatar,
+    rows = {
+      { label = noctalia.tr("row.handle"), value = "@" .. usernameQuery },
+    },
+    note = "note_heuristic",
+  })
+end
+
 local function analyzeDone()
   analyzing = false
+  deriveThreads()
   local foundTotal = 0
   local cardTotal = 0
   for _, card in ipairs(cards) do
@@ -549,6 +592,7 @@ local function analyze()
     return
   end
 
+  usernameQuery = value
   cards = {}
   detected = nil
   peopleNodes = {}
@@ -707,6 +751,7 @@ end
 
 function onClearClicked()
   raw = ""
+  usernameQuery = ""
   cards = {}
   detected = nil
   peopleNodes = {}
