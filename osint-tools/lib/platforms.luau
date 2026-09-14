@@ -1043,8 +1043,131 @@ local function flickr()
   }
 end
 
+local function xmlValue(xml, name)
+  local cdata = xml:match("<" .. name .. "><!%[CDATA%[([^%]]*)%]%]></" .. name .. ">")
+  if cdata then
+    return cdata
+  end
+  return xml:match("<" .. name .. ">([^<]*)</" .. name .. ">")
+end
+
+local function fetchSteamGames(steamid, u, card, cb)
+  local started = util.httpGet("https://steamcommunity.com/profiles/" .. steamid .. "/games/?tab=all&sort=playtime", {
+    "User-Agent: " .. BROWSER_UA,
+    "Accept-Language: en-US,en;q=0.9",
+  }, { follow_redirects = true }, function(res)
+    local body = type(res.body) == "string" and res.body or ""
+    if not (util.statusOk(res) and body:find("gameListRowItemTitle", 1, true)) then
+      if type(res.body) == "string" and (res.body:lower():find("sign in", 1, true) or res.body:find("/login/", 1, true)) then
+        card.note = "note_steam_login"
+      end
+      cb(card)
+      return
+    end
+    local titles = {}
+    for title in body:gmatch('gameListRowItemTitle">([^<]+)</div>') do
+      if #titles < 8 then
+        titles[#titles + 1] = title
+      end
+    end
+    local hours = {}
+    for played in body:gmatch("%>%s*([%d.,]+) hrs on record") do
+      hours[#hours + 1] = played
+    end
+    local gameRows = {}
+    for i = 1, math.min(#titles, 8) do
+      local label = titles[i]
+      local value = hours[i] and (hours[i] .. "h") or ""
+      if value ~= "" then
+        label = label .. " (" .. value .. ")"
+      end
+      table.insert(gameRows, { label = noctalia.tr("row.game"), value = label })
+    end
+    if #gameRows > 0 then
+      if type(card.rows) ~= "table" then
+        card.rows = {}
+      end
+      for _, row in ipairs(gameRows) do
+        table.insert(card.rows, row)
+      end
+    end
+    cb(card)
+  end)
+  return started
+end
+
+local function steam()
+  return {
+    id = "steam",
+    name = "Steam",
+    glyph = "brand-steam",
+    url = "https://steamcommunity.com/",
+    group = "graph.game",
+    check = function(u, cb)
+      local profileUrl
+      if u:match("^%d+$") then
+        profileUrl = "https://steamcommunity.com/profiles/" .. u .. "/?xml=1"
+      else
+        profileUrl = "https://steamcommunity.com/id/" .. noctalia.string.urlEncode(u) .. "/?xml=1"
+      end
+      local started = util.httpGet(profileUrl, {
+        "User-Agent: " .. BROWSER_UA,
+        "Accept-Language: en-US,en;q=0.9",
+      }, nil, function(res)
+        local card = { title = "Steam", glyph = "brand-steam", group = "graph.game" }
+        if not util.statusOk(res) then
+          card.found = false
+          card.url = "https://steamcommunity.com/id/" .. u .. "/"
+          cb(card)
+          return
+        end
+        local xmlBody = type(res.body) == "string" and res.body or ""
+        local steamid = xmlValue(xmlBody, "steamID64")
+        if steamid == nil then
+          card.found = false
+          card.url = "https://steamcommunity.com/id/" .. u .. "/"
+          cb(card)
+          return
+        end
+        card.found = true
+        card.url = "https://steamcommunity.com/profiles/" .. steamid .. "/"
+        local avatar = xmlValue(xmlBody, "avatarFull")
+        if type(avatar) == "string" and avatar ~= "" then
+          card.avatar = avatar
+        end
+        local rows = {}
+        local steamName = xmlValue(xmlBody, "steamID")
+        if type(steamName) == "string" and steamName ~= "" then
+          table.insert(rows, { label = noctalia.tr("row.name"), value = valueText(steamName) })
+        end
+        table.insert(rows, { label = noctalia.tr("row.steamid"), value = steamid })
+        local realname = xmlValue(xmlBody, "realname")
+        if type(realname) == "string" and realname ~= "" then
+          table.insert(rows, { label = noctalia.tr("row.realname"), value = realname })
+        end
+        local location = xmlValue(xmlBody, "location")
+        if type(location) == "string" and location ~= "" then
+          table.insert(rows, { label = noctalia.tr("row.location"), value = location })
+        end
+        local vacuum = xmlValue(xmlBody, "vacBanned")
+        if type(vacuum) == "string" then
+          local banned = tostring(vacuum) == "1"
+          table.insert(rows, { label = noctalia.tr("row.vac"), value = banned and noctalia.tr("row.vac_banned") or noctalia.tr("row.vac_clean") })
+        end
+        card.rows = rows
+        fetchSteamGames(steamid, u, card, cb)
+      end)
+      return started
+    end,
+  }
+end
+
 local buffered
 M.usernameChecks = nil
+
+function M.mastodonInstances()
+  return MASTODON_INSTANCES
+end
 
 function M.buildUsernameChecks()
   if buffered then
@@ -1086,6 +1209,7 @@ function M.buildUsernameChecks()
     rumble,
     deviantart,
     flickr,
+    steam,
   }
   for _, builder in ipairs(builders) do
     local entry = builder()

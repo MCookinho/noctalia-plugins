@@ -310,7 +310,7 @@ local function personCard(p)
   if type(p.name) == "string" and p.name ~= "" then
     table.insert(rows, { label = L("row.name"), value = p.name })
   end
-  table.insert(rows, { label = L("row.source"), value = "GitHub" })
+  table.insert(rows, { label = L("row.source"), value = (type(p.source) == "string" and p.source ~= "") and p.source or "GitHub" })
   if type(p.url) == "string" and p.url ~= "" then
     table.insert(rows, { label = L("row.url"), value = p.url })
   end
@@ -319,7 +319,8 @@ local function personCard(p)
     glyph = "user",
     kind = "person",
     found = true,
-    url = (type(p.url) == "string" and p.url ~= "") and p.url or ("https://github.com/" .. p.login),
+    url = (type(p.url) == "string" and p.url ~= "") and p.url
+      or ((type(p.source) == "string" and p.source == "GitHub") and ("https://github.com/" .. p.login) or nil),
     avatar = p.avatar,
     rows = rows,
     note = "note_people",
@@ -365,7 +366,7 @@ local function centerBlock(key, node)
   return ui.row({ key = key, justify = "center", align = "center" }, { node })
 end
 
-local GROUP_ORDER = { "graph.dev", "graph.social", "graph.services" }
+local GROUP_ORDER = { "graph.dev", "graph.social", "graph.game", "graph.services" }
 
 local function networkView()
   local groups = {}
@@ -395,7 +396,7 @@ local function networkView()
     table.insert(personNodes, {
       key = "person:" .. p.login,
       title = p.login,
-      subtitle = (type(p.name) == "string" and p.name ~= "") and p.name or "GitHub",
+      subtitle = (type(p.name) == "string" and p.name ~= "") and p.name or ((type(p.source) == "string" and p.source ~= "") and p.source or "GitHub"),
       glyph = "user",
       found = true,
       avatar = p.avatar,
