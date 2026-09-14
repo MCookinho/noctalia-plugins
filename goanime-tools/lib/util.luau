@@ -1,6 +1,23 @@
 --!nonstrict
--- Shared plumbing for GoAnime Tools: shell quoting + JSON helpers.
+-- Shared plumbing for GoAnime Tools: shell quoting, JSON and HTTP helpers.
 local M = {}
+
+function M.httpGet(url, headers, opts, cb)
+  local req = { url = url, headers = headers or { "Accept: application/json" } }
+  if opts then
+    if opts.follow_redirects then
+      req.follow_redirects = true
+    end
+  end
+  return noctalia.http(req, function(response)
+    cb(response)
+  end)
+end
+
+function M.statusOk(response)
+  return response ~= nil and response.status ~= nil
+    and response.status >= 200 and response.status < 300
+end
 
 function M.trim(value)
   if type(value) ~= "string" then

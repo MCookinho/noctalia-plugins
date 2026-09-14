@@ -56,18 +56,24 @@ or just open it via the Noctalia dashboard.
 
 ## GoAnime Tools (`mcookinho/goanime-tools`)
 
-Pretty panel around the [GoAnime CLI](https://github.com/alvarorichard/GoAnime).
+Pretty panel around the [GoAnime CLI](https://github.com/alvarorichard/GoAnime),
+with a bar icon that opens it.
 
-- Type `/goanime <query>` in the launcher to open the panel pre-filled.
-- Pick source (AllAnime / AnimeFire / Goyabu / all), quality and episode
-  selector, then:
-  - **Watch** — downloads the episode(s) headless and opens the player
-    (mpv, or the system default) as soon as it's ready. No terminal involved.
-  - **Download** — single episode, a range (`1-5`) or everything (`all`),
-    running headless in the background from the panel.
+- **Bar icon** — a `movie` icon in the bar opens the panel with one click
+  (add `type = "mcookinho/goanime-tools:open"` as a bar widget, or it ships
+  predefined in this setup).
+- Type `/goanime <query>` in the launcher to open the panel pre-filled and
+  searching.
+- **Browse** — search results come from MyAnimeList (Jikan, key-free): poster,
+  type, year, score, synopsis, genres. Pick a show to see an episode grid.
+- **Episodes** — the full episode list as clickable chips; click one to play
+  it (download + player, no terminal).
+- **Watch / Download / Download all** — pick source (AllAnime / AnimeFire /
+  Goyabu / all) and quality, use single episode, a range (`1-5`) or `all`.
+  Everything runs headless in the background.
 - History of past searches is stored per-plugin; the downloads folder opens
   automatically when a download starts (toggleable).
-- Settings: default source, default quality, download folder.
+- Settings: bar icon glyph, default source, default quality, download folder.
 
 Everything runs from the panel — no terminal windows are opened.
 Requires the `goanime` binary and a player (`mpv`) on `PATH`.

@@ -1,6 +1,6 @@
 id = "mcookinho/goanime-tools"
 name = "GoAnime Tools"
-version = "1.0.0"
+version = "1.2.0"
 plugin_api = 9
 author = "mcookinho"
 license = "MIT"
@@ -16,6 +16,18 @@ width = 680
 height = 760
 placement = "floating"
 position = "center"
+
+# Bar icon that opens the panel.
+[[widget]]
+id = "open"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  default = "movie"
+  label_key = "settings.bar.glyph.label"
+  description_key = "settings.bar.glyph.description"
 
 [[launcher_provider]]
 id = "search"
