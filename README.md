@@ -61,12 +61,13 @@ Pretty panel around the [GoAnime CLI](https://github.com/alvarorichard/GoAnime).
 - Type `/goanime <query>` in the launcher to open the panel pre-filled.
 - Pick source (AllAnime / AnimeFire / Goyabu / all), quality and episode
   selector, then:
-  - **Watch** — opens GoAnime's own picker in a terminal (streaming needs its
-    TUI).
+  - **Watch** — downloads the episode(s) headless and opens the player
+    (mpv, or the system default) as soon as it's ready. No terminal involved.
   - **Download** — single episode, a range (`1-5`) or everything (`all`),
     running headless in the background from the panel.
 - History of past searches is stored per-plugin; the downloads folder opens
   automatically when a download starts (toggleable).
 - Settings: default source, default quality, download folder.
 
-Requires the `goanime` binary on `PATH`.
+Everything runs from the panel — no terminal windows are opened.
+Requires the `goanime` binary and a player (`mpv`) on `PATH`.

@@ -136,13 +136,6 @@ local function downloadsFolder(cfg)
   return ""
 end
 
-local function sourceFlag(source)
-  if source == "all" or source == "" then
-    return ""
-  end
-  return "--source " .. source
-end
-
 local function notifyStatus(key, subst)
   statusMsg = tr(key, subst)
   render()
@@ -152,48 +145,12 @@ local function goanimeAvailable()
   return noctalia.commandExists("goanime") == true
 end
 
-function onWatch()
-  local query = currentQuery()
-  if query == "" then
-    return
-  end
-  if not goanimeAvailable() then
-    notifyStatus("status.no_goanime")
-    noctalia.notifyError(L("title"), L("status.no_goanime"))
-    return
-  end
-  local cfg = config()
-  local source = SOURCES[sourceIndex + 1]
-  if source == nil then
-    source = cfg.source
-  end
-  local quality = QUALITIES[qualityIndex + 1]
-  if quality == nil then
-    quality = cfg.quality
-  end
-  addHistory(query)
-  local parts = { "goanime" }
-  local sf = sourceFlag(source)
-  if sf ~= "" then
-    parts[#parts + 1] = sf
-  end
-  parts[#parts + 1] = "--quality " .. util.shellQuote(quality)
-  parts[#parts + 1] = util.shellQuote(query)
-  local cmd = table.concat(parts, " ")
-  local launched = noctalia.runInTerminal(cmd)
-  if not launched then
-    notifyStatus("status.no_terminal")
-    noctalia.notifyError(L("title"), L("status.no_terminal"))
-  end
-end
-
-function onWatchClicked()
-  onWatch()
-end
-
-local function downloadSpec(epText)
+local function episodeSpec()
   local t = util.trim(epText):lower()
-  if t == "" or t == "all" then
+  if t == "" then
+    t = "1"
+  end
+  if t == "all" then
     return { all = true }
   end
   if util.isDigits(t) then
@@ -205,22 +162,14 @@ local function downloadSpec(epText)
   return nil
 end
 
-function onDownload()
-  local query = currentQuery()
-  if query == "" then
-    return
+local function sourceFlag(source)
+  if source == "all" or source == "" then
+    return ""
   end
-  if not goanimeAvailable() then
-    notifyStatus("status.no_goanime")
-    noctalia.notifyError(L("title"), L("status.no_goanime"))
-    return
-  end
-  local spec = downloadSpec(epText)
-  if spec == nil then
-    notifyStatus("status.bad_episodes")
-    return
-  end
-  local cfg = config()
+  return "--source " .. source
+end
+
+local function goanimeParts(spec, cfg)
   local source = SOURCES[sourceIndex + 1]
   if source == nil then
     source = cfg.source
@@ -229,9 +178,6 @@ function onDownload()
   if quality == nil then
     quality = cfg.quality
   end
-
-  addHistory(query)
-
   local parts = { "goanime", "-d" }
   if spec.range then
     parts[#parts + 1] = "-r"
@@ -246,26 +192,79 @@ function onDownload()
   if cfg.downloadDir ~= "" then
     parts[#parts + 1] = "-o " .. util.shellQuote(cfg.downloadDir)
   end
-  parts[#parts + 1] = util.shellQuote(query)
+  parts[#parts + 1] = util.shellQuote(currentQuery())
   if spec.episode then
     parts[#parts + 1] = spec.episode
   elseif spec.range then
     parts[#parts + 1] = spec.range
   end
+  return parts
+end
 
-  local logPath = ""
+local function logAppend(cmd)
   local dir = noctalia.pluginDataDir()
   if type(dir) == "string" and dir ~= "" then
-    logPath = dir .. "/download.log"
+    return "nohup " .. cmd .. " >> " .. util.shellQuote(dir .. "/download.log") .. " 2>&1 &"
   end
+  return "nohup " .. cmd .. " >/dev/null 2>&1 &"
+end
 
-  local cmd = table.concat(parts, " ")
-  if logPath ~= "" then
-    cmd = "nohup " .. cmd .. " >> " .. util.shellQuote(logPath) .. " 2>&1 &"
-  else
-    cmd = "nohup " .. cmd .. " >/dev/null 2>&1 &"
+local function playOneLiner(parts, cfg)
+  local dir = downloadsFolder(cfg)
+  local oneLiner = "DLDIR=" .. util.shellQuote(dir)
+    .. "; " .. table.concat(parts, " ")
+    .. "; L=$(ls -1t \"$DLDIR\"/*.mp4 2>/dev/null | head -1)"
+    .. "; [ -n \"$L\" ] && { if command -v mpv >/dev/null 2>&1; then exec mpv \"$L\"; else exec xdg-open \"$L\"; fi; }; exit 0"
+  return "nohup bash -c " .. util.shellQuote(oneLiner) .. " >/dev/null 2>&1 &"
+end
+
+function onWatch()
+  local query = currentQuery()
+  if query == "" then
+    return
   end
-  noctalia.runAsync(cmd)
+  if not goanimeAvailable() then
+    notifyStatus("status.no_goanime")
+    noctalia.notifyError(L("title"), L("status.no_goanime"))
+    return
+  end
+  local spec = episodeSpec()
+  if spec == nil then
+    notifyStatus("status.bad_episodes")
+    return
+  end
+  local cfg = config()
+  addHistory(query)
+  noctalia.runAsync(playOneLiner(goanimeParts(spec, cfg), cfg))
+  statusMsg = ""
+  render()
+  noctalia.notify(L("title"), tr("status.watching", { q = query }))
+end
+
+function onWatchClicked()
+  onWatch()
+end
+
+function onDownload()
+  local query = currentQuery()
+  if query == "" then
+    return
+  end
+  if not goanimeAvailable() then
+    notifyStatus("status.no_goanime")
+    noctalia.notifyError(L("title"), L("status.no_goanime"))
+    return
+  end
+  local spec = episodeSpec()
+  if spec == nil then
+    notifyStatus("status.bad_episodes")
+    return
+  end
+  local cfg = config()
+
+  addHistory(query)
+
+  noctalia.runAsync(logAppend(table.concat(goanimeParts(spec, cfg), " ")))
 
   statusMsg = ""
   render()
