@@ -14,8 +14,8 @@ tags = ["osint", "security", "utility", "panel", "launcher"]
 [[plugin]]
 id = "mcookinho/watch-anime"
 name = "Watch Anime"
-version = "1.8.0"
-updated_at = 1789684413
+version = "1.8.1"
+updated_at = 1789685490
 added_at = 1789347310
 author = "mcookinho"
 license = "MIT"

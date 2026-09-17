@@ -67,11 +67,14 @@ with a bar icon that opens it.
 - **Browse** — search results come from **AniList** (primary) with automatic
   **Kitsu** fallback (both key-free and reliable): poster, type, year, score,
   synopsis, genres. Pick a show to see an episode grid.
-- **Episodes** — the full episode list as clickable chips; click one to stream
-  it (online via mpv, no terminal) or download it.
+- **Episodes** — the episode list as clickable chips; click one to stream
+  it (online via mpv, no terminal) or download it. Long/ongoing series
+  (One Piece and friends) page 100 episodes at a time, and the count for
+  currently-airing shows comes from AniList's next episode number, so their
+  grid shows up too.
 - **Pick episodes to download** — *Select episodes* turns the grid into a
-  multi-select (tap chips to toggle, *Select all* / *Clear*), then downloads
-  exactly the chosen ones.
+  multi-select (tap chips to toggle, *Select page* / *Clear*), then downloads
+  exactly the chosen ones (across pages).
 - **Watch / Download / Download all** — pick source (AniDB / AnimeFire /
   Goyabu / all) and quality, use single episode, a range (`1-5`) or `all`.
   Everything runs headless in the background.

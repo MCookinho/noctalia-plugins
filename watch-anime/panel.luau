@@ -45,6 +45,11 @@ local dlActive = false
 local dlJob = nil -- { query, total, done }
 local lastPollCount = -1
 
+-- Episode grid paging: long series (One Piece: 1000+) would otherwise render
+-- one giant chip list. We show a fixed window and let the user page through.
+local EP_PAGE_SIZE = 100
+local epPage = 0 -- 0-based page index
+
 local histFile = nil
 
 local function historyPath()
@@ -880,13 +885,41 @@ function onSelectModeClicked()
   render()
 end
 
+-- "Select all" scopes to the currently visible page so it stays sane for very
+-- long series (One Piece: 1000+). Selection accumulates across pages.
 function onSelectAllClicked()
   local n = (type(selected) == "table" and type(selected.episodes) == "number") and selected.episodes or 0
-  local display = math.min(n > 0 and n or 0, 400)
-  selectEps = {}
-  for i = 1, display do
+  if n <= 0 then
+    return
+  end
+  local totalPages = math.max(1, math.ceil(n / EP_PAGE_SIZE))
+  local page = math.min(math.max(epPage, 0), totalPages - 1)
+  local firstEp = page * EP_PAGE_SIZE + 1
+  local lastEp = math.min(firstEp + EP_PAGE_SIZE - 1, n)
+  for i = firstEp, lastEp do
     selectEps[i] = true
   end
+  render()
+end
+
+function onEpPagePrev()
+  epPage = math.max(0, epPage - 1)
+  render()
+end
+
+function onEpPageNext()
+  epPage = epPage + 1
+  render()
+end
+
+function onEpPageFirst()
+  epPage = 0
+  render()
+end
+
+function onEpPageLast()
+  local n = (type(selected) == "table" and type(selected.episodes) == "number") and selected.episodes or 0
+  epPage = math.max(0, math.ceil(n / EP_PAGE_SIZE) - 1)
   render()
 end
 
@@ -1058,6 +1091,21 @@ local function pickFirst(value, ...)
   return type(value) == "string" and value or ""
 end
 
+-- AniList reports `episodes: null` for currently-releasing shows; the released
+-- count is then `nextAiringEpisode.episode - 1` (One Piece → 1178). Without
+-- this, long running series showed no episode grid at all.
+local function anilistEpisodeCount(item)
+  if type(item.episodes) == "number" and item.episodes > 0 then
+    return item.episodes
+  end
+  local nextEp = type(item.nextAiringEpisode) == "table" and item.nextAiringEpisode or nil
+  local n = nextEp ~= nil and nextEp.episode or nil
+  if type(n) == "number" and n > 1 then
+    return n - 1
+  end
+  return nil
+end
+
 local function fromAnilist(item)
   local title = type(item.title) == "table" and item.title or nil
   local romaji = title ~= nil and type(title.romaji) == "string" and title.romaji or ""
@@ -1082,7 +1130,7 @@ local function fromAnilist(item)
     title_english = english,
     title_japanese = native,
     show_type = type(item.format) == "string" and item.format or "",
-    episodes = item.episodes,
+    episodes = anilistEpisodeCount(item),
     status = type(item.status) == "string" and item.status or "",
     score = score,
     year = startDate ~= nil and startDate.year or nil,
@@ -1214,7 +1262,7 @@ function searchAnilist()
   local graphql = "query($search:String){Page(page:1,perPage:9){media"
     .. "(search:$search,type:ANIME,sort:POPULARITY_DESC){id title{romaji english native}"
     .. " coverImage{extraLarge large} startDate{year} episodes status averageScore"
-    .. " genres format description siteUrl}}}"
+    .. " nextAiringEpisode{episode} genres format description siteUrl}}}"
   local body = util.encodeJson({ query = graphql, variables = { search = q } })
   if type(body) ~= "string" or body == "" then
     lastFailCode = "data"
@@ -1327,6 +1375,7 @@ function selectResult(entry)
   epText = ""
   statusMsg = ""
   resetSelection()
+  epPage = 0
   addHistory(anime.query)
   render()
 end
@@ -1455,13 +1504,20 @@ function renderEpisodeGrid(anime)
   if type(n) ~= "number" or n <= 0 then
     return ui.label({ text = tr("episodes.unknown"), fontSize = 11, color = "on_surface_variant" })
   end
-  local display = math.min(n, 400)
+  local totalPages = math.max(1, math.ceil(n / EP_PAGE_SIZE))
+  if epPage < 0 then
+    epPage = 0
+  elseif epPage > totalPages - 1 then
+    epPage = totalPages - 1
+  end
+  local firstEp = epPage * EP_PAGE_SIZE + 1
+  local lastEp = math.min(firstEp + EP_PAGE_SIZE - 1, n)
   local cells = {}
-  for i = 1, display do
+  for i = firstEp, lastEp do
     local isSel = selectMode and selectEps[i] == true
     cells[#cells + 1] = ui.button({
       text = tostring(i),
-      width = 42,
+      width = 48,
       height = 32,
       variant = selectMode and (isSel and "primary" or "secondary") or "ghost",
       tooltip = selectMode
@@ -1477,7 +1533,7 @@ function renderEpisodeGrid(anime)
     })
   end
   local grid = {}
-  local perRow = 12
+  local perRow = 11
   for start = 1, #cells, perRow do
     local rowChildren = {}
     for i = start, math.min(start + perRow - 1, #cells) do
@@ -1485,15 +1541,19 @@ function renderEpisodeGrid(anime)
     end
     grid[#grid + 1] = ui.row({ gap = 6 }, rowChildren)
   end
-  local header = ui.label({ text = tr("detail.episodes", { n = tostring(n) }), fontSize = 12, fontWeight = "medium", color = "on_surface" })
-  if n > display then
-    return ui.column({ gap = 8, align = "stretch" }, {
-      header,
-      ui.scroll({ flexGrow = 1, gap = 6, align = "stretch" }, grid),
-      ui.label({ text = tr("episodes.more", { shown = tostring(display), total = tostring(n) }), fontSize = 11, color = "on_surface_variant" }),
+
+  local columnChildren = {
+    ui.label({ text = tr("detail.episodes", { n = tostring(n) }), fontSize = 12, fontWeight = "medium", color = "on_surface" }),
+  }
+  if totalPages > 1 then
+    columnChildren[#columnChildren + 1] = ui.row({ gap = 6, align = "center" }, {
+      ui.button({ glyph = "chevrons-left", glyphSize = 14, variant = "ghost", enabled = epPage > 0, tooltip = L("episodes.page_first"), onClick = "onEpPageFirst" }),
+      ui.button({ glyph = "chevron-left", glyphSize = 14, variant = "ghost", enabled = epPage > 0, tooltip = L("episodes.page_prev"), onClick = "onEpPagePrev" }),
+      ui.label({ text = tr("episodes.page", { from = tostring(firstEp), to = tostring(lastEp), total = tostring(n) }), fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
+      ui.button({ glyph = "chevron-right", glyphSize = 14, variant = "ghost", enabled = epPage < totalPages - 1, tooltip = L("episodes.page_next"), onClick = "onEpPageNext" }),
+      ui.button({ glyph = "chevrons-right", glyphSize = 14, variant = "ghost", enabled = epPage < totalPages - 1, tooltip = L("episodes.page_last"), onClick = "onEpPageLast" }),
     })
   end
-  local columnChildren = { header }
   for _, row in ipairs(grid) do
     columnChildren[#columnChildren + 1] = row
   end
@@ -1539,7 +1599,7 @@ function buildActions(cfg)
           enabled = n > 0,
           onClick = "onDownloadSelectedClicked",
         }),
-        ui.button({ text = L("download.select_all"), glyph = "checks", variant = "secondary", onClick = "onSelectAllClicked" }),
+        ui.button({ text = L("download.select_page"), glyph = "checks", variant = "secondary", onClick = "onSelectAllClicked" }),
         ui.button({ text = L("download.select_clear"), glyph = "eraser", variant = "ghost", onClick = "onSelectClearClicked" }),
         ui.button({ text = L("download.select_cancel"), glyph = "close", variant = "ghost", onClick = "onSelectCancelClicked" }),
         ui.spacer(),
@@ -1630,6 +1690,7 @@ function onResume(query)
   epText = ""
   statusMsg = ""
   resetSelection()
+  epPage = 0
   render()
   runSearch()
 end
@@ -1663,6 +1724,7 @@ function onClearClicked()
   searching = false
   lastSearched = ""
   resetSelection()
+  epPage = 0
   render()
 end
 
