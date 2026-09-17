@@ -64,8 +64,9 @@ with a bar icon that opens it.
   predefined in this setup).
 - Type `/goanime <query>` in the launcher to open the panel pre-filled and
   searching.
-- **Browse** — search results come from MyAnimeList (Jikan, key-free): poster,
-  type, year, score, synopsis, genres. Pick a show to see an episode grid.
+- **Browse** — search results come from **AniList** (primary) with automatic
+  **Kitsu** fallback (both key-free and reliable): poster, type, year, score,
+  synopsis, genres. Pick a show to see an episode grid.
 - **Episodes** — the full episode list as clickable chips; click one to play
   it (download + player, no terminal).
 - **Watch / Download / Download all** — pick source (AllAnime / AnimeFire /

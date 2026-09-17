@@ -1,11 +1,11 @@
 --!nonstrict
 -- GoAnime Tools panel.
 --
--- Search an anime through MyAnimeList (Jikan, key-free), browse a pretty
--- result card with poster, synopsis, genres and an episode grid, then either
--- open the player (mpv / system default) or download headless via the GoAnime
--- CLI - always from this panel, never a terminal.
--- Type `/goanime <query>` in the launcher to open this panel pre-filled.
+-- Search an anime (AniList primary, Kitsu fallback - both key-free and
+-- stable), browse pretty result cards with poster, synopsis, genres and an
+-- episode grid, then either open the player (mpv / system default) or
+-- download headless via the GoAnime CLI - always from this panel, never a
+-- terminal. Type `/goanime <query>` in the launcher to open the panel.
 local util = require("./lib/util.luau")
 
 local SOURCES = { "all", "allanime", "animefire", "goyabu" }
@@ -401,6 +401,259 @@ local function cleanAnime(item)
   }
 end
 
+local function stripHtml(text)
+  text = text:gsub("<br%s*/?>", "\n")
+  text = text:gsub("<[^>]+>", "")
+  text = text:gsub("%[%![^%]!]+%!%]", "")
+  text = text:gsub("__%*%*", ""):gsub("%*%*__", ""):gsub("%*%*", "")
+  text = text:gsub("&nbsp;", " "):gsub("&quot;", '"'):gsub("&#039;", "'")
+  text = text:gsub("&amp;", "&"):gsub("&lt;", "<"):gsub("&gt;", ">")
+  text = text:gsub("%s+", " ")
+  return util.trim(text)
+end
+
+local function pickFirst(value, ...)
+  for i = 1, select("#", ...) do
+    if type(value) == "string" and value ~= "" then
+      return value
+    end
+    value = select(i, ...)
+  end
+  return type(value) == "string" and value or ""
+end
+
+local function fromAnilist(item)
+  local title = type(item.title) == "table" and item.title or nil
+  local romaji = title ~= nil and type(title.romaji) == "string" and title.romaji or ""
+  local english = title ~= nil and type(title.english) == "string" and title.english or ""
+  local native = title ~= nil and type(title.native) == "string" and title.native or ""
+  local cover = type(item.coverImage) == "table" and item.coverImage or nil
+  local startDate = type(item.startDate) == "table" and item.startDate or nil
+  local genres = type(item.genres) == "table" and item.genres or {}
+  local cleanGenres = {}
+  for _, g in ipairs(genres) do
+    if type(g) == "string" and g ~= "" then
+      cleanGenres[#cleanGenres + 1] = g
+    end
+  end
+  local score = item.averageScore
+  if type(score) == "number" then
+    score = math.floor(score / 10 * 10 + 0.5) / 10
+  end
+  return {
+    mal_id = item.id,
+    title = romaji,
+    title_english = english,
+    title_japanese = native,
+    show_type = type(item.format) == "string" and item.format or "",
+    episodes = item.episodes,
+    status = type(item.status) == "string" and item.status or "",
+    score = score,
+    year = startDate ~= nil and startDate.year or nil,
+    synopsis = stripHtml(type(item.description) == "string" and item.description or ""),
+    url = type(item.siteUrl) == "string" and item.siteUrl or "",
+    genres = cleanGenres,
+    image_url = cover ~= nil
+      and (type(cover.extraLarge) == "string" and cover.extraLarge
+        or (type(cover.large) == "string" and cover.large or "")) or "",
+    query = pickFirst(english, romaji),
+  }
+end
+
+local function fromKitsu(item)
+  local attrs = type(item.attributes) == "table" and item.attributes or {}
+  local titles = type(attrs.titles) == "table" and attrs.titles or {}
+  local english = pickFirst(titles.en, titles.en_jp, titles.en_us)
+  local canonical = type(attrs.canonicalTitle) == "string" and attrs.canonicalTitle or ""
+  local poster = type(attrs.posterImage) == "table" and attrs.posterImage or {}
+  local genres = {}
+  local rel = type(item.relationships) == "table" and item.relationships or {}
+  if type(rel.categories) == "table" then
+    local data = rel.categories.data
+    if type(data) == "table" then
+      for _, ref in ipairs(data) do
+        if type(ref) == "table" and type(ref.id) == "string" then
+          genres[#genres + 1] = ref.id
+        end
+      end
+    end
+  end
+  local score = tonumber(attrs.averageRating)
+  if score ~= nil then
+    score = math.floor(score / 10 * 10 + 0.5) / 10
+  end
+  local year = nil
+  if type(attrs.startDate) == "string" and attrs.startDate:match("^(%d%d%d%d)%-") then
+    year = tonumber(attrs.startDate:match("^(%d%d%d%d)%-"))
+  end
+  local url = ""
+  if type(attrs.slug) == "string" and attrs.slug ~= "" then
+    url = "https://kitsu.io/anime/" .. attrs.slug
+  end
+  return {
+    mal_id = item.id,
+    title = pickFirst(english, canonical),
+    title_english = english,
+    title_japanese = pickFirst(titles.ja_jp),
+    show_type = type(attrs.subtype) == "string" and attrs.subtype or "",
+    episodes = attrs.episodeCount,
+    status = type(attrs.status) == "string" and attrs.status or "",
+    score = score,
+    year = year,
+    synopsis = stripHtml(type(attrs.synopsis) == "string" and attrs.synopsis or ""),
+    url = url,
+    genres = genres,
+    image_url = type(poster.large) == "string" and poster.large
+      or (type(poster.medium) == "string" and poster.medium or ""),
+    query = pickFirst(english, canonical),
+  }
+end
+
+local function prettyStatus(code)
+  local norm = (type(code) == "string" and code or ""):lower():gsub("_", " ")
+  if norm == "finished" or norm == "complete" or norm == "completed" then
+    return L("status.map.finished")
+  elseif norm == "releasing" or norm == "airing" or norm == "current" or norm == "ongoing" then
+    return L("status.map.airing")
+  elseif norm == "not yet aired" or norm == "not yet released" then
+    return L("status.map.not_yet")
+  elseif norm == "cancelled" or norm == "canceled" then
+    return L("status.map.cancelled")
+  elseif norm == "hiatus" or norm == "on hiatus" then
+    return L("status.map.hiatus")
+  elseif norm == "upcoming" or norm == "planned" then
+    return L("status.map.upcoming")
+  elseif norm == "unreleased" then
+    return L("status.map.unreleased")
+  end
+  return type(code) == "string" and code or ""
+end
+
+local apiOrder = { "anilist", "kitsu" }
+local apiIndex = 0
+local lastFailCode = "network"
+
+local function searchNext()
+  apiIndex = apiIndex + 1
+  local name = apiOrder[apiIndex]
+  if name == nil then
+    searching = false
+    statusMsg = tr("status.search_failed", { code = lastFailCode or "network" })
+    render()
+    return
+  end
+  if name == "anilist" then
+    searchAnilist()
+  else
+    searchKitsu()
+  end
+end
+
+local function searchFinished(items)
+  searching = false
+  results = items or {}
+  if #results == 0 then
+    statusMsg = tr("status.search_empty")
+  end
+  render()
+end
+
+local function onSearchResponse(response, parse)
+  if not util.statusOk(response) then
+    lastFailCode = tostring(response and response.status or "network")
+    searchNext()
+    return
+  end
+  local ok, json = pcall(parse)
+  if not ok or type(json) ~= "table" then
+    lastFailCode = "data"
+    searchNext()
+    return
+  end
+  searchFinished(json)
+end
+
+function searchAnilist()
+  local q = currentQuery()
+  local graphql = "query($search:String){Page(page:1,perPage:9){media"
+    .. "(search:$search,type:ANIME,sort:POPULARITY_DESC){id title{romaji english native}"
+    .. " coverImage{extraLarge large} startDate{year} episodes status averageScore"
+    .. " genres format description siteUrl}}}"
+  local body = util.encodeJson({ query = graphql, variables = { search = q } })
+  if type(body) ~= "string" or body == "" then
+    lastFailCode = "data"
+    searchNext()
+    return
+  end
+  local started = util.httpPost(
+    "https://graphql.anilist.co",
+    body,
+    { "Content-Type: application/json", "Accept: application/json" },
+    { follow_redirects = true },
+    function(response)
+      onSearchResponse(response, function()
+        local parsed = util.decodeJson(response.body)
+        local items = {}
+        if type(parsed) == "table" and type(parsed.data) == "table"
+          and type(parsed.data.Page) == "table" and type(parsed.data.Page.media) == "table" then
+          for _, item in ipairs(parsed.data.Page.media) do
+            items[#items + 1] = fromAnilist(item)
+          end
+        end
+        return items
+      end)
+    end)
+  if not started then
+    lastFailCode = "network"
+    searchNext()
+  end
+end
+
+function searchKitsu()
+  local q = noctalia.string.urlEncode(currentQuery())
+  local url = "https://kitsu.io/api/edge/anime?filter[text]=" .. q
+    .. "&page[limit]=9&sort=popularityRank"
+  local started = util.httpGet(
+    url,
+    { "Accept: application/vnd.api+json", "Accept: application/json" },
+    { follow_redirects = true },
+    function(response)
+      onSearchResponse(response, function()
+        local parsed = util.decodeJson(response.body)
+        local items = {}
+        if type(parsed) == "table" and type(parsed.data) == "table" then
+          local genres = {}
+          if type(parsed.included) == "table" then
+            for _, entry in ipairs(parsed.included) do
+              if type(entry) == "table" and entry.type == "categories"
+                and type(entry.attributes) == "table" and type(entry.attributes.title) == "string" then
+                genres[entry.id] = entry.attributes.title
+              end
+            end
+          end
+          for _, item in ipairs(parsed.data) do
+            local anime = fromKitsu(item)
+            if #anime.genres > 0 then
+              local named = {}
+              for _, id in ipairs(anime.genres) do
+                if type(genres[id]) == "string" and genres[id] ~= "" then
+                  named[#named + 1] = genres[id]
+                end
+              end
+              anime.genres = named
+            end
+            items[#items + 1] = anime
+          end
+        end
+        return items
+      end)
+    end)
+  if not started then
+    lastFailCode = "network"
+    searchNext()
+  end
+end
+
 function runSearch()
   local q = currentQuery()
   if q == "" then
@@ -415,44 +668,21 @@ function runSearch()
   selected = nil
   results = {}
   statusMsg = ""
+  apiIndex = 0
+  lastFailCode = "network"
   render()
-  local url = "https://api.jikan.moe/v4/anime?q=" .. noctalia.string.urlEncode(q)
-    .. "&limit=9&order_by=members&sort=desc&sfw=true"
-  local started = util.httpGet(url, nil, { follow_redirects = true }, function(response)
-    searching = false
-    if not util.statusOk(response) then
-      statusMsg = tr("status.search_failed", { code = tostring(response and response.status) })
-      render()
-      return
-    end
-    local json = util.decodeJson(response and response.body)
-    if type(json) ~= "table" or type(json.data) ~= "table" then
-      statusMsg = tr("status.search_empty")
-      render()
-      return
-    end
-    results = {}
-    for _, item in ipairs(json.data) do
-      results[#results + 1] = cleanAnime(item)
-    end
-    if #results == 0 then
-      statusMsg = tr("status.search_empty")
-    end
-    render()
-  end)
-  if not started then
-    searching = false
-    statusMsg = tr("status.search_failed", { code = "request" })
-    render()
-  end
+  searchNext()
 end
 
 function onSearch()
   runSearch()
 end
 
-function selectResult(index)
-  local anime = results[index]
+function selectResult(entry)
+  local anime = results[entry]
+  if anime == nil and type(entry) == "table" then
+    anime = entry
+  end
   if anime == nil then
     return
   end
@@ -526,7 +756,7 @@ function renderDetail(anime)
     meta[#meta + 1] = { text = tostring(anime.year) }
   end
   if anime.status ~= "" then
-    meta[#meta + 1] = { text = anime.status }
+    meta[#meta + 1] = { text = prettyStatus(anime.status) }
   end
   if anime.score ~= nil then
     meta[#meta + 1] = { text = "★ " .. tostring(anime.score) }
@@ -537,13 +767,13 @@ function renderDetail(anime)
 
   local metaChildren = {}
   for _, m in ipairs(meta) do
-    metaChildren[#metaChildren + 1] = ui.label({
-      text = m.text,
-      fontSize = 11,
-      color = "primary",
-      fill = "primary/0.12",
+    metaChildren[#metaChildren + 1] = ui.column({
+      paddingH = 10,
+      paddingV = 2,
       radius = 99,
-      padding = { 2, 10 },
+      fill = "primary/0.12",
+    }, {
+      ui.label({ text = m.text, fontSize = 11, color = "primary" }),
     })
   end
 
@@ -561,7 +791,7 @@ function renderDetail(anime)
         })),
     ui.column({ flexGrow = 1, gap = 6, align = "stretch" }, {
       ui.label({ text = title, fontSize = 16, fontWeight = "bold", color = "on_surface", maxLines = 2 }),
-      ui.row({ wrap = true, gap = 6 }, metaChildren),
+      ui.row({ gap = 6 }, metaChildren),
       (genreText ~= "" and ui.label({ text = genreText, fontSize = 11, color = "on_surface_variant", maxLines = 2 }) or nil),
       ui.row({ gap = 6 }, {
         ui.button({ text = "MAL", glyph = "external-link", glyphSize = 12, variant = "ghost", onClick = function()
@@ -618,10 +848,11 @@ function renderEpisodeGrid(anime)
       ui.label({ text = tr("episodes.more", { shown = tostring(display), total = tostring(n) }), fontSize = 11, color = "on_surface_variant" }),
     })
   end
-  return ui.column({ gap = 8, align = "stretch" }, {
-    header,
-    grid,
-  })
+  local columnChildren = { header }
+  for _, row in ipairs(grid) do
+    columnChildren[#columnChildren + 1] = row
+  end
+  return ui.column({ gap = 8, align = "stretch" }, columnChildren)
 end
 
 function buildActions(cfg)
