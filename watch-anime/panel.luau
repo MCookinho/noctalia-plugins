@@ -37,6 +37,14 @@ local searching = false
 local lastSearched = ""
 local render = nil
 
+-- Download-selection mode (pick individual episodes in the grid) and the
+-- live download job tracked through a progress file.
+local selectMode = false
+local selectEps = {} -- ep number -> true
+local dlActive = false
+local dlJob = nil -- { query, total, done }
+local lastPollCount = -1
+
 local histFile = nil
 
 local function historyPath()
@@ -235,6 +243,317 @@ local function logAppend(cmd)
     return "nohup " .. cmd .. " >> " .. util.shellQuote(dir .. "/download.log") .. " 2>&1 &"
   end
   return "nohup " .. cmd .. " >/dev/null 2>&1 &"
+end
+
+-- ---- download runner (per-episode, with progress) --------------------------
+-- Downloads run as ONE detached `sh` batch (survives panel close). Each
+-- episode is its own `goanime -d "<q>" <n>` invocation; completion markers
+-- ("D <n>" / "F <n>" / "END") are appended to a progress file that the
+-- panel's update() re-reads on a one-second tick, driving a live bar. The
+-- batch is setid'd into its own process group so Cancel can kill the whole
+-- tree with a single signal. Episode stdout goes to download.log (Bubble Tea
+-- ANSI noise included) — only the markers feed the panel.
+
+local function dataDir()
+  local dir = noctalia.pluginDataDir()
+  if type(dir) == "string" and dir ~= "" then
+    return dir
+  end
+  return nil
+end
+
+local function dlLogPath()
+  local dir = dataDir()
+  if dir == nil then
+    return ""
+  end
+  return dir .. "/download.log"
+end
+
+local function dlProgressPath()
+  local dir = dataDir()
+  if dir == nil then
+    return ""
+  end
+  return dir .. "/dl-progress.txt"
+end
+
+local function dlStatePath()
+  local dir = dataDir()
+  if dir == nil then
+    return ""
+  end
+  return dir .. "/dl-state.json"
+end
+
+local function dlPidPath()
+  local dir = dataDir()
+  if dir == nil then
+    return ""
+  end
+  return dir .. "/dl.pid"
+end
+
+local function dlScriptPath()
+  local dir = dataDir()
+  if dir == nil then
+    return ""
+  end
+  return dir .. "/dl-batch.sh"
+end
+
+-- Parse a snapshot of the progress file. Only complete lines (file ends with
+-- \n) are counted, so a torn mid-write read is simply caught on the next tick.
+local function parseProgress(text)
+  local done, fail, finished = 0, 0, false
+  if type(text) ~= "string" or text == "" then
+    return done, fail, finished
+  end
+  local complete = text:match("^(.*)\n") or ""
+  for line in complete:gmatch("[^\n]+") do
+    if line == "END" then
+      finished = true
+    else
+      local kind = line:match("^([DF])%s")
+      if kind == "D" then
+        done = done + 1
+      elseif kind == "F" then
+        fail = fail + 1
+      end
+    end
+  end
+  return done, fail, finished
+end
+
+-- Turn an episodeSpec into a concrete, enumerable list. `all` with an unknown
+-- count returns nil → the caller falls back to the CLI's own "-a" mode.
+local function episodesFromSpec(spec)
+  if spec.all then
+    local n = (type(selected) == "table" and type(selected.episodes) == "number") and selected.episodes or 0
+    if type(n) ~= "number" or n <= 0 then
+      return nil
+    end
+    local eps = {}
+    for i = 1, math.min(n, 400) do
+      eps[#eps + 1] = i
+    end
+    return eps
+  end
+  if spec.episode then
+    local n = tonumber(spec.episode)
+    if n ~= nil and n > 0 then
+      return { n }
+    end
+    return {}
+  end
+  if spec.range then
+    local a, b = spec.range:match("^(%d+)-(%d+)$")
+    a, b = tonumber(a), tonumber(b)
+    if a == nil or b == nil or a > b then
+      return {}
+    end
+    local bCap = math.min(b, a + 399)
+    local eps = {}
+    for i = a, bCap do
+      eps[#eps + 1] = i
+    end
+    return eps
+  end
+  return {}
+end
+
+local function countSelectEps()
+  local n = 0
+  for _ in pairs(selectEps) do
+    n = n + 1
+  end
+  return n
+end
+
+local function resetSelection()
+  selectMode = false
+  selectEps = {}
+end
+
+local function buildDownloadScript(eps, cfg)
+  local logPath = dlLogPath()
+  local progressPath = dlProgressPath()
+  local lines = { "set +e" }
+  for _, ep in ipairs(eps) do
+    local spec = { episode = tostring(ep) }
+    local cmd = table.concat(watchAnimeParts(spec, cfg), " ")
+    lines[#lines + 1] = cmd .. " </dev/null >> " .. util.shellQuote(logPath) .. " 2>&1"
+    lines[#lines + 1] = "if [ $? -eq 0 ]; then echo \"D " .. tostring(ep) .. "\" >> " .. util.shellQuote(progressPath)
+      .. "; else echo \"F " .. tostring(ep) .. "\" >> " .. util.shellQuote(progressPath) .. "; fi"
+  end
+  lines[#lines + 1] = "echo \"END\" >> " .. util.shellQuote(progressPath)
+  return table.concat(lines, "\n")
+end
+
+-- Old single-shot path (no progress): used for `download all` on anime with an
+-- unknown episode count, where the CLI's "-a" enumerates them internally.
+local function launchLegacy(spec, cfg)
+  addHistory(watchAnimeQuery())
+  noctalia.runAsync(logAppend(table.concat(watchAnimeParts(spec, cfg), " ")))
+  statusMsg = ""
+  render()
+  noctalia.notify(L("title"), tr("status.downloading", { q = watchAnimeQuery() }))
+  if cfg.openAfter then
+    openFolder(downloadsFolder(cfg))
+  end
+end
+
+-- Launch a tracked, per-episode batch. Returns true once the batch is running.
+local function startDownload(eps)
+  local q = watchAnimeQuery()
+  if q == "" then
+    return false
+  end
+  if not watchAnimeAvailable() then
+    notifyStatus("status.no_goanime")
+    noctalia.notifyError(L("title"), L("status.no_goanime"))
+    return false
+  end
+  if dlActive then
+    noctalia.notifyError(L("title"), L("download.busy"))
+    return false
+  end
+  if #eps == 0 then
+    notifyStatus("status.bad_episodes")
+    return false
+  end
+  if dataDir() == nil then
+    launchLegacy({ episode = tostring(eps[1]) }, config())
+    return false
+  end
+  local cfg = config()
+  addHistory(q)
+
+  dlJob = { query = q, total = #eps, done = 0, failedCount = 0 }
+  dlActive = true
+  lastPollCount = -1
+
+  noctalia.writeFile(dlStatePath(), util.encodeJson({ query = q, total = #eps, started = noctalia.nowMs() }))
+  noctalia.writeFile(dlProgressPath(), "")
+  noctalia.writeFile(dlScriptPath(), buildDownloadScript(eps, cfg))
+
+  -- setsid grants the batch its own process group so Cancel can kill the tree.
+  noctalia.runAsync(
+    "setsid sh " .. util.shellQuote(dlScriptPath()) .. " >/dev/null 2>&1 < /dev/null & echo $! > " .. util.shellQuote(dlPidPath())
+  )
+
+  statusMsg = tr("status.downloading", { q = q })
+  render()
+  noctalia.notify(L("title"), statusMsg)
+
+  if cfg.openAfter then
+    openFolder(downloadsFolder(cfg))
+  end
+  return true
+end
+
+local function pollDownloadCleanup()
+  noctalia.removeFile(dlStatePath())
+  noctalia.removeFile(dlProgressPath())
+  noctalia.removeFile(dlPidPath())
+  noctalia.removeFile(dlScriptPath())
+  dlActive = false
+  dlJob = nil
+  lastPollCount = -1
+end
+
+local function pollDownload()
+  if not dlActive or dlJob == nil then
+    return
+  end
+  local done, fail, finished = parseProgress(noctalia.readFile(dlProgressPath()))
+  local total = dlJob.total
+  if total == nil or total <= 0 then
+    total = 1
+  end
+  done = math.min(done, total)
+  if done == lastPollCount and not finished then
+    return
+  end
+  if finished then
+    local ok = math.max(0, total - fail)
+    local msg = fail == 0
+      and tr("download.finished_ok", { ok = tostring(ok), total = tostring(total) })
+      or tr("download.finished_fail", { ok = tostring(ok), total = tostring(total), fail = tostring(fail) })
+    pollDownloadCleanup()
+    statusMsg = msg
+    render()
+    noctalia.notify(L("title"), msg)
+  else
+    dlJob.done = done
+    dlJob.failedCount = fail
+    lastPollCount = done
+    render()
+  end
+end
+
+function update()
+  if dlActive then
+    pollDownload()
+  end
+end
+
+-- Resume a batch that is still running after the panel was closed/reopened.
+local function loadDlState()
+  local text = noctalia.readFile(dlStatePath())
+  if type(text) ~= "string" or text == "" then
+    return
+  end
+  local data = util.decodeJson(text)
+  local q = type(data) == "table" and tostring(data.query or "") or ""
+  local total = type(data) == "table" and tonumber(data.total) or 0
+  if q == "" or total == nil or total <= 0 then
+    pollDownloadCleanup()
+    return
+  end
+  local done, fail, finished = parseProgress(noctalia.readFile(dlProgressPath()))
+  if finished then
+    pollDownloadCleanup()
+    return
+  end
+  dlActive = true
+  dlJob = { query = q, total = total, done = math.min(done, total), failedCount = fail }
+  lastPollCount = dlJob.done
+  statusMsg = tr("status.downloading", { q = q })
+end
+
+local function renderDownloadProgress()
+  local job = dlJob
+  if job == nil then
+    return nil
+  end
+  local total = (job.total ~= nil and job.total > 0) and job.total or 1
+  local done = math.min(job.done or 0, total)
+  local pct = math.max(0, math.min(1, done / total))
+  local failNote = ""
+  if job.failedCount ~= nil and job.failedCount > 0 then
+    failNote = " " .. tr("download.failed_count", { n = tostring(job.failedCount) })
+  end
+  return ui.column({ gap = 6, align = "stretch" }, {
+    ui.row({ gap = 8, align = "center" }, {
+      ui.glyph({ name = "download", size = 14, color = "primary" }),
+      ui.label({
+        text = tr("status.downloading", { q = job.query }) .. failNote,
+        fontSize = 12,
+        fontWeight = "medium",
+        color = "on_surface",
+        flexGrow = 1,
+        maxLines = 1,
+      }),
+      ui.label({
+        text = tr("download.count", { done = tostring(done), total = tostring(total) }),
+        fontSize = 12,
+        color = "on_surface_variant",
+      }),
+      ui.button({ glyph = "x", glyphSize = 14, variant = "ghost", tooltip = L("download.cancel_tooltip"), onClick = "onDownloadCancelClicked" }),
+    }),
+    ui.progress({ progress = pct, fill = "primary", track = "surface_variant", height = 6, radius = 3 }),
+  })
 end
 
 -- ---- goanime-stream self-install ------------------------------------------
@@ -524,24 +843,90 @@ function onDownload()
     noctalia.notifyError(L("title"), L("status.no_goanime"))
     return
   end
+  if dlActive then
+    noctalia.notifyError(L("title"), L("download.busy"))
+    return
+  end
   local spec = episodeSpec()
   if spec == nil then
     notifyStatus("status.bad_episodes")
     return
   end
-  local cfg = config()
-
-  addHistory(watchAnimeQuery())
-
-  noctalia.runAsync(logAppend(table.concat(watchAnimeParts(spec, cfg), " ")))
-
-  statusMsg = ""
-  render()
-  noctalia.notify(L("title"), tr("status.downloading", { q = watchAnimeQuery() }))
-
-  if cfg.openAfter then
-    openFolder(downloadsFolder(cfg))
+  local eps = episodesFromSpec(spec)
+  if eps == nil then
+    -- Ongoing anime with an unknown episode count: let the CLI's "-a" pick.
+    launchLegacy(spec, config())
+    return
   end
+  startDownload(eps)
+end
+
+function toggleSelectEp(ep)
+  if selectEps[ep] then
+    selectEps[ep] = nil
+  else
+    selectEps[ep] = true
+  end
+  render()
+end
+
+function onSelectModeClicked()
+  if dlActive then
+    noctalia.notifyError(L("title"), L("download.busy"))
+    return
+  end
+  selectMode = true
+  selectEps = {}
+  render()
+end
+
+function onSelectAllClicked()
+  local n = (type(selected) == "table" and type(selected.episodes) == "number") and selected.episodes or 0
+  local display = math.min(n > 0 and n or 0, 400)
+  selectEps = {}
+  for i = 1, display do
+    selectEps[i] = true
+  end
+  render()
+end
+
+function onSelectClearClicked()
+  selectEps = {}
+  render()
+end
+
+function onSelectCancelClicked()
+  resetSelection()
+  render()
+end
+
+function onDownloadSelectedClicked()
+  local eps = {}
+  for ep in pairs(selectEps) do
+    eps[#eps + 1] = ep
+  end
+  table.sort(eps)
+  if #eps == 0 then
+    return
+  end
+  if startDownload(eps) then
+    resetSelection()
+  end
+end
+
+function onDownloadCancelClicked()
+  local pidText = noctalia.readFile(dlPidPath())
+  if type(pidText) == "string" then
+    local pid = pidText:match("(%d+)")
+    if pid ~= nil then
+      -- setsid gives the batch its own group; -<pid> kills the whole tree.
+      noctalia.runAsync("kill -TERM -- -" .. pid .. " 2>/dev/null; kill -TERM " .. pid .. " 2>/dev/null; true")
+    end
+  end
+  pollDownloadCleanup()
+  statusMsg = L("download.cancelled")
+  render()
+  noctalia.notify(L("title"), L("download.cancelled"))
 end
 
 function onDownloadClicked()
@@ -941,6 +1326,7 @@ function selectResult(entry)
   selected = anime
   epText = ""
   statusMsg = ""
+  resetSelection()
   addHistory(anime.query)
   render()
 end
@@ -1072,14 +1458,21 @@ function renderEpisodeGrid(anime)
   local display = math.min(n, 400)
   local cells = {}
   for i = 1, display do
+    local isSel = selectMode and selectEps[i] == true
     cells[#cells + 1] = ui.button({
       text = tostring(i),
       width = 42,
       height = 32,
-      variant = "ghost",
-      tooltip = tr("episodes.watch_hint", { ep = tostring(i) }),
+      variant = selectMode and (isSel and "primary" or "secondary") or "ghost",
+      tooltip = selectMode
+        and tr("episodes.select_hint", { ep = tostring(i) })
+        or tr("episodes.watch_hint", { ep = tostring(i) }),
       onClick = function()
-        onEpisodeWatchClick(i)
+        if selectMode then
+          toggleSelectEp(i)
+        else
+          onEpisodeWatchClick(i)
+        end
       end,
     })
   end
@@ -1112,7 +1505,48 @@ function buildActions(cfg)
   for _, key in ipairs(SOURCE_KEYS) do
     sourceOptions[#sourceOptions + 1] = L(key)
   end
-  local actions = {
+  if selectMode then
+    local n = countSelectEps()
+    return {
+      ui.row({ gap = 8, align = "center" }, {
+        ui.label({ text = L("source.label") .. ":", fontSize = 12, color = "on_surface_variant", width = 56 }),
+        ui.select({
+          key = "source_select",
+          options = sourceOptions,
+          selectedIndex = sourceIndex,
+          onChange = "onSourceSelect",
+        }),
+        ui.label({ text = L("quality.label") .. ":", fontSize = 12, color = "on_surface_variant", width = 70 }),
+        ui.select({
+          key = "quality_select",
+          options = QUALITIES,
+          selectedIndex = qualityIndex,
+          onChange = "onQualitySelect",
+        }),
+        ui.label({
+          text = tr("episodes.selected", { n = tostring(n) }),
+          fontSize = 12,
+          fontWeight = "medium",
+          color = "primary",
+          flexGrow = 1,
+        }),
+      }),
+      ui.row({ gap = 8, align = "center" }, {
+        ui.button({
+          text = tr("download.selected", { n = tostring(n) }),
+          glyph = "download",
+          variant = "primary",
+          enabled = n > 0,
+          onClick = "onDownloadSelectedClicked",
+        }),
+        ui.button({ text = L("download.select_all"), glyph = "checks", variant = "secondary", onClick = "onSelectAllClicked" }),
+        ui.button({ text = L("download.select_clear"), glyph = "eraser", variant = "ghost", onClick = "onSelectClearClicked" }),
+        ui.button({ text = L("download.select_cancel"), glyph = "close", variant = "ghost", onClick = "onSelectCancelClicked" }),
+        ui.spacer(),
+      }),
+    }
+  end
+  return {
     ui.row({ gap = 8, align = "center" }, {
       ui.label({ text = L("source.label") .. ":", fontSize = 12, color = "on_surface_variant", width = 56 }),
       ui.select({
@@ -1141,11 +1575,11 @@ function buildActions(cfg)
       ui.button({ text = L("watch.button"), glyph = "play", variant = "primary", onClick = "onWatchClicked" }),
       ui.button({ text = L("download.button"), glyph = "download", variant = "secondary", onClick = "onDownloadClicked" }),
       ui.button({ text = L("download.all"), glyph = "download", variant = "secondary", onClick = "onDownloadAllClicked" }),
+      ui.button({ text = L("download.select"), glyph = "list-check", variant = "ghost", onClick = "onSelectModeClicked" }),
       ui.button({ text = L("open.downloads"), glyph = "folder", variant = "ghost", onClick = "onOpenDownloadsClicked" }),
       ui.spacer(),
     }),
   }
-  return actions
 end
 
 -- While the user types (query not yet searched), surface previous searches
@@ -1195,6 +1629,7 @@ function onResume(query)
   results = {}
   epText = ""
   statusMsg = ""
+  resetSelection()
   render()
   runSearch()
 end
@@ -1227,6 +1662,7 @@ function onClearClicked()
   results = {}
   searching = false
   lastSearched = ""
+  resetSelection()
   render()
 end
 
@@ -1266,11 +1702,16 @@ render = function()
 
   local body = {}
 
+  if dlActive then
+    body[#body + 1] = renderDownloadProgress()
+    body[#body + 1] = ui.separator({ spacing = 4 })
+  end
+
   if searching then
     body[#body + 1] = ui.label({ text = L("status.searching"), fontSize = 12, color = "primary" })
   elseif selected ~= nil then
     body[#body + 1] = renderDetail(selected)
-    if statusMsg ~= "" then
+    if statusMsg ~= "" and not dlActive then
       body[#body + 1] = ui.label({ text = statusMsg, fontSize = 12, color = "primary", maxLines = 2 })
     end
 
@@ -1318,6 +1759,9 @@ end
 
 function onOpen(_)
   loadHistory()
+  -- Second ticks drive the live download-progress bar while the panel is open.
+  panel.setWantsSecondTicks(true)
+  loadDlState()
   -- A previous session may have left a goanime-stream build running; tell the
   -- user as soon as the panel notices the binary is finally there.
   local marker = streamBuildMarker()
@@ -1336,8 +1780,10 @@ function onOpen(_)
     raw = pending
     noctalia.state.set("watch_anime_pending_query", "")
     loadHistory()
-    render()
     runSearch()
+  else
+    -- Refresh so a resumed download bar / status shows immediately on reopen.
+    render()
   end
 end
 

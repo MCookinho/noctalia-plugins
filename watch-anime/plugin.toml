@@ -1,13 +1,13 @@
 id = "mcookinho/watch-anime"
 name = "Watch Anime"
-version = "1.7.1"
+version = "1.8.0"
 plugin_api = 9
 author = "mcookinho"
 license = "MIT"
 dependencies = []
 tags = ["anime", "media", "download", "utility", "panel", "launcher"]
 icon = "movie"
-description = "Watch Anime panel: search anime, stream to mpv (nothing saved) or download episodes/ranges/shows with source & quality."
+description = "Watch Anime panel: search anime, stream to mpv (nothing saved), pick episodes to download and watch live progress."
 
 [[panel]]
 id = "dashboard"

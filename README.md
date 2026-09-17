@@ -69,9 +69,16 @@ with a bar icon that opens it.
   synopsis, genres. Pick a show to see an episode grid.
 - **Episodes** — the full episode list as clickable chips; click one to stream
   it (online via mpv, no terminal) or download it.
+- **Pick episodes to download** — *Select episodes* turns the grid into a
+  multi-select (tap chips to toggle, *Select all* / *Clear*), then downloads
+  exactly the chosen ones.
 - **Watch / Download / Download all** — pick source (AniDB / AnimeFire /
   Goyabu / all) and quality, use single episode, a range (`1-5`) or `all`.
   Everything runs headless in the background.
+- **Live download progress** — downloads run episode by episode with a native
+  progress bar in the panel (`n/total`, failures flagged, Cancel kills the
+  batch). The batch keeps running if you close the panel and the bar resumes
+  when you reopen it.
 - **Watch streams straight to mpv, nothing saved** — Watch (and episode chips)
   resolve the episode to its direct stream URL and open mpv instantly through
   **`goanime-stream`** (a helper built from GoAnime's own SDK; source ships
