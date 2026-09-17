@@ -14,12 +14,12 @@ tags = ["osint", "security", "utility", "panel", "launcher"]
 [[plugin]]
 id = "mcookinho/goanime-tools"
 name = "GoAnime Tools"
-version = "1.3.0"
-updated_at = 1789663927
+version = "1.4.0"
+updated_at = 1789670779
 added_at = 1789347310
 author = "mcookinho"
 license = "MIT"
 icon = "movie"
-description = "Drive the GoAnime CLI from a pretty panel: search, watch or download episodes/ranges/whole shows with chosen source and quality."
+description = "GoAnime panel: search anime, stream online (mpv, nothing saved) or download episodes/ranges/shows with source & quality."
 plugin_api = 9
 tags = ["anime", "media", "download", "utility", "panel", "launcher"]

@@ -1,13 +1,13 @@
 id = "mcookinho/goanime-tools"
 name = "GoAnime Tools"
-version = "1.3.0"
+version = "1.4.0"
 plugin_api = 9
 author = "mcookinho"
 license = "MIT"
 dependencies = []
 tags = ["anime", "media", "download", "utility", "panel", "launcher"]
 icon = "movie"
-description = "Drive the GoAnime CLI from a pretty panel: search, watch or download episodes/ranges/whole shows with chosen source and quality."
+description = "GoAnime panel: search anime, stream online (mpv, nothing saved) or download episodes/ranges/shows with source & quality."
 
 [[panel]]
 id = "dashboard"
@@ -56,7 +56,7 @@ description_key = "settings.source.description"
 default = "all"
 options = [
     { value = "all", label_key = "settings.source.all" },
-    { value = "allanime", label_key = "settings.source.allanime" },
+    { value = "anidb", label_key = "settings.source.anidb" },
     { value = "animefire", label_key = "settings.source.animefire" },
     { value = "goyabu", label_key = "settings.source.goyabu" },
 ]

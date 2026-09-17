@@ -3,13 +3,16 @@
 --
 -- Search an anime (AniList primary, Kitsu fallback - both key-free and
 -- stable), browse pretty result cards with poster, synopsis, genres and an
--- episode grid, then either open the player (mpv / system default) or
--- download headless via the GoAnime CLI - always from this panel, never a
--- terminal. Type `/goanime <query>` in the launcher to open the panel.
+-- episode grid, then either stream it straight into the player or download
+-- headless via the GoAnime CLI - always from this panel, never a terminal.
+-- Watch (and episode chips) fetch the episode into a temporary cache and open
+-- mpv as soon as it is ready; the cache is deleted after playback, so nothing
+-- is saved. Download / Download all keep files in the downloads folder.
+-- Type `/goanime <query>` in the launcher to open the panel.
 local util = require("./lib/util.luau")
 
-local SOURCES = { "all", "allanime", "animefire", "goyabu" }
-local SOURCE_KEYS = { "source.all", "source.allanime", "source.animefire", "source.goyabu" }
+local SOURCES = { "all", "anidb", "animefire", "goyabu" }
+local SOURCE_KEYS = { "source.all", "source.anidb", "source.animefire", "source.goyabu" }
 local QUALITIES = { "best", "worst", "1080p", "720p", "480p" }
 
 local function L(key)
@@ -227,12 +230,75 @@ local function logAppend(cmd)
   return "nohup " .. cmd .. " >/dev/null 2>&1 &"
 end
 
-local function playOneLiner(parts, cfg)
-  local dir = downloadsFolder(cfg)
-  local oneLiner = "DLDIR=" .. util.shellQuote(dir)
-    .. "; " .. table.concat(parts, " ")
-    .. "; L=$(ls -1t \"$DLDIR\"/*.mp4 2>/dev/null | head -1)"
-    .. "; [ -n \"$L\" ] && { if command -v mpv >/dev/null 2>&1; then exec mpv \"$L\"; else exec xdg-open \"$L\"; fi; }; exit 0"
+-- ---- "Watch" streams: fetch the episode into a temporary cache, open the
+-- player (mpv) the moment it is ready, and delete the cache after playback.
+-- Nothing is saved to the downloads folder from this path.
+
+local watchCacheBase = nil
+
+local function watchCacheDir()
+  if watchCacheBase ~= nil then
+    return watchCacheBase
+  end
+  local base = noctalia.getenv("XDG_CACHE_HOME")
+  if type(base) ~= "string" or base == "" then
+    base = util.home() .. "/.cache"
+  end
+  local dir = base .. "/goanime-tools/watch"
+  noctalia.mkdirAll(dir)
+  watchCacheBase = dir
+  return dir
+end
+
+local function streamEpisodeNumber(spec)
+  if spec.episode then
+    return spec.episode
+  end
+  if spec.range then
+    local first = spec.range:match("^(%d+)")
+    if first ~= nil then
+      return first
+    end
+  end
+  if spec.all then
+    return "1"
+  end
+  return nil
+end
+
+local function streamParts(spec, cfg, epNum)
+  local source = SOURCES[sourceIndex + 1]
+  if source == nil then
+    source = cfg.source
+  end
+  local quality = QUALITIES[qualityIndex + 1]
+  if quality == nil then
+    quality = cfg.quality
+  end
+  local parts = { "goanime", "-d", "-o", "\"$CACHE\"" }
+  local sf = sourceFlag(source)
+  if sf ~= "" then
+    parts[#parts + 1] = sf
+  end
+  parts[#parts + 1] = "--quality " .. util.shellQuote(quality)
+  parts[#parts + 1] = util.shellQuote(goanimeQuery())
+  parts[#parts + 1] = epNum
+  return parts
+end
+
+local function streamOneLiner(parts)
+  local dir = watchCacheDir()
+  if dir == "" then
+    return nil
+  end
+  local oneLiner = "CACHE=$(mktemp -d " .. util.shellQuote(dir .. "/watch.XXXXXX")
+    .. ") || exit 1; "
+    .. table.concat(parts, " ")
+    .. "; L=$(ls -1t \"$CACHE\"/*.mp4 2>/dev/null | head -1)"
+    .. "; if [ -n \"$L\" ]; then"
+    .. "  if command -v mpv >/dev/null 2>&1; then mpv \"$L\"; rm -rf \"$CACHE\";"
+    .. "  else xdg-open \"$L\"; fi;"
+    .. " else rm -rf \"$CACHE\"; fi; exit 0"
   return "nohup bash -c " .. util.shellQuote(oneLiner) .. " >/dev/null 2>&1 &"
 end
 
@@ -251,9 +317,18 @@ function onWatch()
     notifyStatus("status.bad_episodes")
     return
   end
+  local epNum = streamEpisodeNumber(spec)
+  if epNum == nil then
+    epNum = "1"
+  end
   local cfg = config()
+  local cmd = streamOneLiner(streamParts(spec, cfg, epNum))
+  if cmd == nil then
+    notifyStatus("status.no_cache")
+    return
+  end
   addHistory(goanimeQuery())
-  noctalia.runAsync(playOneLiner(goanimeParts(spec, cfg), cfg))
+  noctalia.runAsync(cmd)
   statusMsg = ""
   render()
   noctalia.notify(L("title"), tr("status.watching", { q = goanimeQuery() }))
@@ -856,12 +931,16 @@ function renderEpisodeGrid(anime)
 end
 
 function buildActions(cfg)
+  local sourceOptions = {}
+  for _, key in ipairs(SOURCE_KEYS) do
+    sourceOptions[#sourceOptions + 1] = L(key)
+  end
   local actions = {
     ui.row({ gap = 8, align = "center" }, {
       ui.label({ text = L("source.label") .. ":", fontSize = 12, color = "on_surface_variant", width = 56 }),
       ui.select({
         key = "source_select",
-        options = { L("source.all"), L("source.allanime"), L("source.animefire"), L("source.goyabu") },
+        options = sourceOptions,
         selectedIndex = sourceIndex,
         onChange = "onSourceSelect",
       }),

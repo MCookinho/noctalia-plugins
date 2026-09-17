@@ -67,11 +67,15 @@ with a bar icon that opens it.
 - **Browse** — search results come from **AniList** (primary) with automatic
   **Kitsu** fallback (both key-free and reliable): poster, type, year, score,
   synopsis, genres. Pick a show to see an episode grid.
-- **Episodes** — the full episode list as clickable chips; click one to play
-  it (download + player, no terminal).
-- **Watch / Download / Download all** — pick source (AllAnime / AnimeFire /
+- **Episodes** — the full episode list as clickable chips; click one to stream
+  it (temp cache + mpv, no terminal) or download it.
+- **Watch / Download / Download all** — pick source (AniDB / AnimeFire /
   Goyabu / all) and quality, use single episode, a range (`1-5`) or `all`.
   Everything runs headless in the background.
+- **Watch streams, nothing is saved** — Watch (and episode chips) fetch the
+  episode into a temporary cache, open mpv the moment it is ready, and delete
+  the cache after playback. Download / Download all keep files in the
+  downloads folder.
 - History of past searches is stored per-plugin; the downloads folder opens
   automatically when a download starts (toggleable).
 - Settings: bar icon glyph, default source, default quality, download folder.
