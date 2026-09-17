@@ -31,10 +31,10 @@ local qualityIndex = 0
 local epText = ""
 local statusMsg = ""
 local history = {}
-local showHistory = true
 local selected = nil
 local results = {}
 local searching = false
+local lastSearched = ""
 local render = nil
 
 local histFile = nil
@@ -93,41 +93,8 @@ local function addHistory(query)
   saveHistory()
 end
 
--- History is shown by default; a panel toggle (header of the history section)
--- hides it and remembers the choice in the plugin data dir, like history.json.
-local histVisibleFile = nil
-
-local function historyVisiblePath()
-  if histVisibleFile ~= nil then
-    return histVisibleFile
-  end
-  local dir = noctalia.pluginDataDir()
-  if type(dir) == "string" and dir ~= "" then
-    histVisibleFile = dir .. "/history-visible.json"
-  else
-    histVisibleFile = ""
-  end
-  return histVisibleFile
-end
-
-local function loadHistoryVisible()
-  local p = historyVisiblePath()
-  if p == "" then
-    return
-  end
-  local text = noctalia.readFile(p)
-  if text == "false" then
-    showHistory = false
-  end
-end
-
-local function saveHistoryVisible()
-  local p = historyVisiblePath()
-  if p == "" then
-    return
-  end
-  noctalia.writeFile(p, showHistory and "true" or "false")
-end
+-- History is recorded on search/selection; it is never shown as a fixed
+-- block — matching previous searches surface as suggestions while typing.
 
 local function config()
   local source = noctalia.getConfig("source_default")
@@ -952,6 +919,7 @@ function runSearch()
   selected = nil
   results = {}
   statusMsg = ""
+  lastSearched = currentQuery()
   apiIndex = 0
   lastFailCode = "network"
   render()
@@ -1180,58 +1148,45 @@ function buildActions(cfg)
   return actions
 end
 
-function buildHistoryEntries()
-  local children = {}
-  if #history == 0 then
-    children[#children + 1] = ui.label({
-      text = L("history.empty"),
-      fontSize = 12,
-      color = "on_surface_variant",
-      maxLines = 2,
-    })
-  else
-    for _, entry in ipairs(history) do
-      children[#children + 1] = ui.button({
-        text = entry.q,
-        glyph = "history",
-        variant = "ghost",
-        contentAlign = "start",
-        tooltip = entry.q,
-        onClick = function()
-          onResume(entry.q)
-        end,
-      })
+-- While the user types (query not yet searched), surface previous searches
+-- that match it (case-insensitive) — no fixed history block anymore.
+local function historyMatches(query)
+  local q = util.trim(query or ""):lower()
+  if q == "" then
+    return {}
+  end
+  local out = {}
+  for _, entry in ipairs(history) do
+    local eq = tostring(entry.q or ""):lower()
+    if eq ~= "" and eq:find(q, 1, true) ~= nil then
+      out[#out + 1] = entry
+      if #out >= 6 then
+        break
+      end
     end
   end
+  return out
+end
+
+function buildHistorySuggestions(query)
+  local matches = historyMatches(query)
+  if #matches == 0 then
+    return nil
+  end
+  local children = {}
+  for _, entry in ipairs(matches) do
+    children[#children + 1] = ui.button({
+      text = entry.q,
+      glyph = "history",
+      variant = "ghost",
+      contentAlign = "start",
+      tooltip = entry.q,
+      onClick = function()
+        onResume(entry.q)
+      end,
+    })
+  end
   return ui.column({ gap = 6, align = "stretch" }, children)
-end
-
--- Collapsible history: the toggle row stays visible so the section can always
--- be brought back.
-function buildHistorySection()
-  return ui.column({ gap = 6, align = "stretch" }, {
-    ui.row({ gap = 8, align = "center" }, {
-      ui.toggle({
-        checked = showHistory,
-        tooltip = L("history.toggle"),
-        onChange = "onToggleHistory",
-      }),
-      ui.label({
-        text = L("history.title"),
-        fontSize = 13,
-        fontWeight = "medium",
-        color = "on_surface",
-        flexGrow = 1,
-      }),
-    }),
-    showHistory and buildHistoryEntries() or nil,
-  })
-end
-
-function onToggleHistory(value)
-  showHistory = value == true
-  saveHistoryVisible()
-  render()
 end
 
 function onResume(query)
@@ -1246,6 +1201,8 @@ end
 
 function onQueryChanged(value)
   raw = value or ""
+  statusMsg = ""
+  render()
 end
 
 function onSourceSelect(index, _text)
@@ -1269,6 +1226,7 @@ function onClearClicked()
   selected = nil
   results = {}
   searching = false
+  lastSearched = ""
   render()
 end
 
@@ -1321,6 +1279,18 @@ render = function()
     end
     body[#body + 1] = ui.separator({ spacing = 4 })
     body[#body + 1] = renderEpisodeGrid(selected)
+  elseif currentQuery() ~= "" and currentQuery() ~= lastSearched and statusMsg == "" then
+    -- Typing a new query: offer past searches that match before searching.
+    local sugg = buildHistorySuggestions(currentQuery())
+    if sugg ~= nil then
+      body[#body + 1] = ui.label({
+        text = L("history.suggest_title"),
+        fontSize = 12,
+        fontWeight = "medium",
+        color = "on_surface_variant",
+      })
+      body[#body + 1] = sugg
+    end
   elseif #results > 0 then
     body[#body + 1] = ui.label({
       text = tr("results.title", { q = currentQuery() }),
@@ -1337,19 +1307,17 @@ render = function()
     body[#body + 1] = ui.label({ text = tr("results.empty", { q = currentQuery() }), fontSize = 12, color = "on_surface_variant", maxLines = 2 })
   elseif statusMsg ~= "" then
     body[#body + 1] = ui.label({ text = statusMsg, fontSize = 12, color = "primary", maxLines = 2 })
+  else
+    body[#body + 1] = ui.label({ text = L("launcher.hint"), fontSize = 12, color = "on_surface_variant", maxLines = 2 })
   end
 
   children[#children + 1] = ui.scroll({ flexGrow = 1, gap = 12, align = "stretch" }, body)
-
-  children[#children + 1] = ui.separator({ spacing = 2 })
-  children[#children + 1] = buildHistorySection()
 
   panel.render(ui.column({ flexGrow = 1, gap = 12, align = "stretch" }, children))
 end
 
 function onOpen(_)
   loadHistory()
-  loadHistoryVisible()
   -- A previous session may have left a goanime-stream build running; tell the
   -- user as soon as the panel notices the binary is finally there.
   local marker = streamBuildMarker()
