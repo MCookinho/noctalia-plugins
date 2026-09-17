@@ -1,13 +1,13 @@
-id = "mcookinho/goanime-tools"
+id = "mcookinho/watch-anime"
 name = "Watch Anime"
-version = "1.6.3"
+version = "1.7.0"
 plugin_api = 9
 author = "mcookinho"
 license = "MIT"
 dependencies = []
 tags = ["anime", "media", "download", "utility", "panel", "launcher"]
 icon = "movie"
-description = "GoAnime panel: search anime, stream online (mpv, nothing saved) or download episodes/ranges/shows with source & quality."
+description = "Watch Anime panel: search anime, stream to mpv (nothing saved) or download episodes/ranges/shows with source & quality."
 
 [[panel]]
 id = "dashboard"
@@ -32,7 +32,7 @@ entry = "widget.luau"
 [[launcher_provider]]
 id = "search"
 entry = "launcher.luau"
-prefix = "goanime"
+prefix = "watch-anime"
 glyph = "movie"
 include_in_global_search = false
 

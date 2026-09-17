@@ -12,7 +12,7 @@ function update()
 end
 
 function onClick()
-  noctalia.togglePanel("mcookinho/goanime-tools:dashboard")
+  noctalia.togglePanel("mcookinho/watch-anime:dashboard")
 end
 
 render()

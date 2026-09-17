@@ -1,4 +1,4 @@
-# goanime-stream — true online streaming for the Noctalia GoAnime panel
+# goanime-stream — true online streaming for the Noctalia Watch Anime panel
 
 `goanime-stream` is a tiny Go helper that does what the GoAnime CLI's
 interactive **"No download (play online)"** option does, but headlessly:
@@ -37,7 +37,7 @@ you as soon as it is ready:
 ## Install — manual
 
 ```bash
-cd goanime-tools/stream
+cd watch-anime/stream
 ./build.sh            # installs to ~/.local/bin
 # or: ./build.sh /usr/local/bin
 ```

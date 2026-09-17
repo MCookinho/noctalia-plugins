@@ -1,5 +1,5 @@
 --!nonstrict
--- Launcher provider: type `/goanime <query>` to open the GoAnime panel pre-filled.
+-- Launcher provider: type `/watch-anime <query>` to open the Watch Anime panel pre-filled.
 local util = require("./lib/util.luau")
 local lastQuery = ""
 
@@ -32,7 +32,7 @@ function onActivate(id)
     return
   end
   if lastQuery ~= "" then
-    noctalia.state.set("goanime_pending_query", lastQuery)
+    noctalia.state.set("watch_anime_pending_query", lastQuery)
   end
-  noctalia.togglePanel("mcookinho/goanime-tools:dashboard")
+  noctalia.togglePanel("mcookinho/watch-anime:dashboard")
 end

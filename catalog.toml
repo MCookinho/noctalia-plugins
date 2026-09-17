@@ -12,14 +12,14 @@ plugin_api = 9
 tags = ["osint", "security", "utility", "panel", "launcher"]
 
 [[plugin]]
-id = "mcookinho/goanime-tools"
+id = "mcookinho/watch-anime"
 name = "Watch Anime"
-version = "1.6.3"
-updated_at = 1789720300
+version = "1.7.0"
+updated_at = 1789720400
 added_at = 1789347310
 author = "mcookinho"
 license = "MIT"
 icon = "movie"
-description = "GoAnime panel: search anime, stream online (mpv, nothing saved) or download episodes/ranges/shows with source & quality."
+description = "Watch Anime panel: search anime, stream to mpv (nothing saved) or download episodes/ranges/shows with source & quality."
 plugin_api = 9
 tags = ["anime", "media", "download", "utility", "panel", "launcher"]

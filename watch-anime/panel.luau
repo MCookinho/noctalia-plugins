@@ -10,7 +10,7 @@
 -- falls back to fetching the episode into a temporary cache and opening mpv as
 -- soon as it is ready — the cache is deleted after playback, so nothing is
 -- saved. Download / Download all keep files in the downloads folder.
--- Type `/goanime <query>` in the launcher to open the panel.
+-- Type `/watch-anime <query>` in the launcher to open the panel.
 local util = require("./lib/util.luau")
 
 local SOURCES = { "all", "anidb", "animefire", "goyabu" }
@@ -184,6 +184,7 @@ local function downloadsFolder(cfg)
   end
   local home = util.home()
   if home ~= "" then
+    -- GoAnime CLI's real default downloads folder.
     return home .. "/.local/goanime/downloads/anime"
   end
   return ""
@@ -194,7 +195,7 @@ local function notifyStatus(key, subst)
   render()
 end
 
-local function goanimeAvailable()
+local function watchAnimeAvailable()
   return noctalia.commandExists("goanime") == true
 end
 
@@ -222,14 +223,14 @@ local function sourceFlag(source)
   return "--source " .. source
 end
 
-local function goanimeQuery()
+local function watchAnimeQuery()
   if selected and selected.query ~= "" then
     return selected.query
   end
   return currentQuery()
 end
 
-local function goanimeParts(spec, cfg)
+local function watchAnimeParts(spec, cfg)
   local source = SOURCES[sourceIndex + 1]
   if source == nil then
     source = cfg.source
@@ -252,7 +253,7 @@ local function goanimeParts(spec, cfg)
   if cfg.downloadDir ~= "" then
     parts[#parts + 1] = "-o " .. util.shellQuote(cfg.downloadDir)
   end
-  parts[#parts + 1] = util.shellQuote(goanimeQuery())
+  parts[#parts + 1] = util.shellQuote(watchAnimeQuery())
   if spec.episode then
     parts[#parts + 1] = spec.episode
   elseif spec.range then
@@ -410,7 +411,7 @@ local function watchCacheDir()
   if type(base) ~= "string" or base == "" then
     base = util.home() .. "/.cache"
   end
-  local dir = base .. "/goanime-tools/watch"
+  local dir = base .. "/watch-anime/watch"
   noctalia.mkdirAll(dir)
   watchCacheBase = dir
   return dir
@@ -447,7 +448,7 @@ local function streamParts(spec, cfg, epNum)
     parts[#parts + 1] = sf
   end
   parts[#parts + 1] = "--quality " .. util.shellQuote(quality)
-  parts[#parts + 1] = util.shellQuote(goanimeQuery())
+  parts[#parts + 1] = util.shellQuote(watchAnimeQuery())
   parts[#parts + 1] = epNum
   return parts
 end
@@ -482,7 +483,7 @@ local function streamCliCmd(spec, cfg, epNum, bin)
     args[#args + 1] = "--source " .. source
   end
   args[#args + 1] = "--quality " .. util.shellQuote(quality)
-  args[#args + 1] = util.shellQuote(goanimeQuery())
+  args[#args + 1] = util.shellQuote(watchAnimeQuery())
   args[#args + 1] = epNum
   -- < /dev/null guarantees goanime-stream never hangs waiting for a TTY.
   return logAppend(table.concat(args, " ") .. " < /dev/null")
@@ -493,7 +494,7 @@ function onWatch()
   if query == "" and not (selected and selected.query ~= "") then
     return
   end
-  if not goanimeAvailable() then
+  if not watchAnimeAvailable() then
     notifyStatus("status.no_goanime")
     noctalia.notifyError(L("title"), L("status.no_goanime"))
     return
@@ -535,11 +536,11 @@ function onWatch()
       note = tr("stream.needs_toolchain")
     end
   end
-  addHistory(goanimeQuery())
+  addHistory(watchAnimeQuery())
   noctalia.runAsync(cmd)
   statusMsg = note or ""
   render()
-  noctalia.notify(L("title"), tr("status.watching", { q = goanimeQuery() }))
+  noctalia.notify(L("title"), tr("status.watching", { q = watchAnimeQuery() }))
 end
 
 function onWatchClicked()
@@ -551,7 +552,7 @@ function onDownload()
   if query == "" and not (selected and selected.query ~= "") then
     return
   end
-  if not goanimeAvailable() then
+  if not watchAnimeAvailable() then
     notifyStatus("status.no_goanime")
     noctalia.notifyError(L("title"), L("status.no_goanime"))
     return
@@ -563,13 +564,13 @@ function onDownload()
   end
   local cfg = config()
 
-  addHistory(goanimeQuery())
+  addHistory(watchAnimeQuery())
 
-  noctalia.runAsync(logAppend(table.concat(goanimeParts(spec, cfg), " ")))
+  noctalia.runAsync(logAppend(table.concat(watchAnimeParts(spec, cfg), " ")))
 
   statusMsg = ""
   render()
-  noctalia.notify(L("title"), tr("status.downloading", { q = goanimeQuery() }))
+  noctalia.notify(L("title"), tr("status.downloading", { q = watchAnimeQuery() }))
 
   if cfg.openAfter then
     openFolder(downloadsFolder(cfg))
@@ -942,7 +943,7 @@ function runSearch()
   if q == "" then
     return
   end
-  if not goanimeAvailable() then
+  if not watchAnimeAvailable() then
     notifyStatus("status.no_goanime")
     noctalia.notifyError(L("title"), L("status.no_goanime"))
     return
@@ -1362,20 +1363,20 @@ function onOpen(_)
       streamCleanup() -- stale marker (build failed) — the next Watch retries
     end
   end
-  local pending = noctalia.state.get("goanime_pending_query")
+  local pending = noctalia.state.get("watch_anime_pending_query")
   if type(pending) == "string" and pending ~= "" then
     raw = pending
-    noctalia.state.set("goanime_pending_query", "")
+    noctalia.state.set("watch_anime_pending_query", "")
     loadHistory()
     render()
     runSearch()
   end
 end
 
-noctalia.state.watch("goanime_pending_query", function(value)
+noctalia.state.watch("watch_anime_pending_query", function(value)
   if type(value) == "string" and value ~= "" then
     raw = value
-    noctalia.state.set("goanime_pending_query", "")
+    noctalia.state.set("watch_anime_pending_query", "")
     render()
     runSearch()
   end

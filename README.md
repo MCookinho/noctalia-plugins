@@ -54,15 +54,15 @@ ethical purposes, and respect local privacy laws (e.g. LGPD).
 Open the panel with `Shift+Space` (or your launcher) and type `/osint <query>`,
 or just open it via the Noctalia dashboard.
 
-## Watch Anime (`mcookinho/goanime-tools`)
+## Watch Anime (`mcookinho/watch-anime`)
 
 Pretty panel around the [GoAnime CLI](https://github.com/alvarorichard/GoAnime),
 with a bar icon that opens it.
 
 - **Bar icon** — a `movie` icon in the bar opens the panel with one click
-  (add `type = "mcookinho/goanime-tools:open"` as a bar widget, or it ships
+  (add `type = "mcookinho/watch-anime:open"` as a bar widget, or it ships
   predefined in this setup).
-- Type `/goanime <query>` in the launcher to open the panel pre-filled and
+- Type `/watch-anime <query>` in the launcher to open the panel pre-filled and
   searching.
 - **Browse** — search results come from **AniList** (primary) with automatic
   **Kitsu** fallback (both key-free and reliable): poster, type, year, score,
@@ -75,7 +75,7 @@ with a bar icon that opens it.
 - **Watch streams straight to mpv, nothing saved** — Watch (and episode chips)
   resolve the episode to its direct stream URL and open mpv instantly through
   **`goanime-stream`** (a helper built from GoAnime's own SDK; source ships
-  inside the plugin — see `goanime-tools/stream/README.md`). The panel
+  inside the plugin — see `watch-anime/stream/README.md`). The panel
   **compiles it automatically in the background on the first Watch**
   (needs `git` + `go`) into the plugin's data folder and notifies you when
   it's ready; until then it falls back to a temporary cache that is deleted
@@ -91,4 +91,4 @@ Everything runs from the panel — no terminal windows are opened.
 Requires the `goanime` binary and a player (`mpv`) on `PATH`. For true
 zero-download streaming the panel compiles the bundled `goanime-stream` helper
 on the first Watch (needs `git` + `go`, or install it yourself — see
-`goanime-tools/stream/README.md`).
+`watch-anime/stream/README.md`).
