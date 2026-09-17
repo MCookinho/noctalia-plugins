@@ -5,9 +5,11 @@
 -- stable), browse pretty result cards with poster, synopsis, genres and an
 -- episode grid, then either stream it straight into the player or download
 -- headless via the GoAnime CLI - always from this panel, never a terminal.
--- Watch (and episode chips) fetch the episode into a temporary cache and open
--- mpv as soon as it is ready; the cache is deleted after playback, so nothing
--- is saved. Download / Download all keep files in the downloads folder.
+-- Watch streams online via the bundled `goanime-stream` helper (compiled in
+-- the background on first use into <pluginDataDir>/bin); until it is ready it
+-- falls back to fetching the episode into a temporary cache and opening mpv as
+-- soon as it is ready — the cache is deleted after playback, so nothing is
+-- saved. Download / Download all keep files in the downloads folder.
 -- Type `/goanime <query>` in the launcher to open the panel.
 local util = require("./lib/util.luau")
 
@@ -230,12 +232,136 @@ local function logAppend(cmd)
   return "nohup " .. cmd .. " >/dev/null 2>&1 &"
 end
 
+-- ---- goanime-stream self-install ------------------------------------------
+-- True online streaming needs the `goanime-stream` helper (resolves the
+-- episode to its direct stream URL and opens mpv on it — nothing on disk).
+-- The helper ships bundled with this plugin (stream/main.go + build.sh); on
+-- the first Watch without a binary, the panel compiles it into
+-- <pluginDataDir>/bin in the background (needs git + go), notifying the user
+-- when it is ready. Until then, Watch falls back to the temp-cache mode.
+
+local STREAM_BUILD_TIMEOUT_MS = 10 * 60 * 1000 -- stale build marker threshold
+
+local streamBin = nil            -- resolved binary (PATH first, then data dir)
+local streamBuildScript = nil    -- pluginDir()/stream/build.sh if bundled
+local streamInstallSent = false  -- "installing" notify sent (for ready notify)
+
+local function streamBinDir()
+  local dir = noctalia.pluginDataDir()
+  if type(dir) ~= "string" or dir == "" then
+    return nil
+  end
+  return dir .. "/bin"
+end
+
+local function streamBuildMarker()
+  local dir = streamBinDir()
+  if dir == nil then
+    return nil
+  end
+  return dir .. "/.stream-building"
+end
+
+local function streamIsBuilding()
+  local marker = streamBuildMarker()
+  if marker == nil then
+    return false
+  end
+  local text = noctalia.readFile(marker)
+  local start = tonumber(text)
+  if start == nil then
+    return false
+  end
+  return noctalia.nowMs() - start < STREAM_BUILD_TIMEOUT_MS
+end
+
+-- Path of the goanime-stream binary to use: one on PATH wins, then the panel's
+-- self-built copy in the plugin data dir. Returns nil when unavailable.
+local function streamBinary()
+  if streamBin ~= nil then
+    return streamBin
+  end
+  if noctalia.commandExists("goanime-stream") == true then
+    streamBin = "goanime-stream"
+    return streamBin
+  end
+  local dir = streamBinDir()
+  if dir ~= nil and noctalia.fileExists(dir .. "/goanime-stream") then
+    streamBin = dir .. "/goanime-stream"
+    return streamBin
+  end
+  return nil
+end
+
+local function streamBuildScriptPath()
+  if streamBuildScript ~= nil then
+    return streamBuildScript
+  end
+  local plugin = noctalia.pluginDir()
+  if type(plugin) == "string" and plugin ~= "" then
+    local script = plugin .. "/stream/build.sh"
+    if noctalia.fileExists(script) then
+      streamBuildScript = script
+    end
+  end
+  return streamBuildScript
+end
+
+-- Make goanime-stream available, compiling the bundled source in the
+-- background when missing. Returns nil when already available, otherwise a
+-- reason string: "started" | "building" | "unavailable" | "no-toolchain".
+local function streamEnsure()
+  if streamBinary() ~= nil then
+    return nil
+  end
+  local marker = streamBuildMarker()
+  if marker ~= nil and noctalia.fileExists(marker) and streamIsBuilding() then
+    return "building"
+  end
+  local script = streamBuildScriptPath()
+  if script == nil then
+    return "unavailable"
+  end
+  if noctalia.commandExists("go") ~= true or noctalia.commandExists("git") ~= true then
+    return "no-toolchain"
+  end
+  local dir = streamBinDir()
+  if dir == nil then
+    return "unavailable"
+  end
+  noctalia.mkdirAll(dir)
+  -- (Re)start the build; overwriting the marker also clears stale markers.
+  noctalia.writeFile(marker, tostring(noctalia.nowMs()))
+  local log = noctalia.pluginDataDir() .. "/stream-build.log"
+  local cmd = "nohup bash " .. util.shellQuote(script) .. " " .. util.shellQuote(dir)
+    .. " >> " .. util.shellQuote(log) .. " 2>&1 &"
+  noctalia.log("goanime-stream: starting background build -> " .. dir)
+  noctalia.runAsync(cmd)
+  return "started"
+end
+
+-- Drop the build marker once the binary exists; keep it while still compiling
+-- so reopening the panel mid-build doesn't start a second build.
+local function streamCleanup()
+  local marker = streamBuildMarker()
+  if marker == nil or not noctalia.fileExists(marker) then
+    return
+  end
+  if streamBinary() ~= nil then
+    noctalia.removeFile(marker)
+    return
+  end
+  if not streamIsBuilding() then
+    noctalia.removeFile(marker) -- stale: the next Watch will retry
+  end
+end
+
 -- ---- "Watch" streams:
--- Preferred path: goanime-stream (optional helper) resolves the episode to its
--- direct stream URL and opens mpv on it — true online playback, nothing on
--- disk. Fallback: fetch the episode into a temporary cache, open the player
--- (mpv) the moment it is ready, and delete the cache after playback. Either
--- way nothing is saved to the downloads folder.
+-- Preferred path: goanime-stream resolves the episode to its direct stream URL
+-- and opens mpv on it — true online playback, nothing on disk. Fallback: fetch
+-- the episode into a temporary cache, open the player (mpv) the moment it is
+-- ready, and delete the cache after playback. Either way nothing is saved to
+-- the downloads folder.
 
 local watchCacheBase = nil
 
@@ -305,7 +431,7 @@ local function streamOneLiner(parts)
   return "nohup bash -c " .. util.shellQuote(oneLiner) .. " >/dev/null 2>&1 &"
 end
 
-local function streamCliCmd(spec, cfg, epNum)
+local function streamCliCmd(spec, cfg, epNum, bin)
   local source = SOURCES[sourceIndex + 1]
   if source == nil then
     source = cfg.source
@@ -314,7 +440,7 @@ local function streamCliCmd(spec, cfg, epNum)
   if quality == nil then
     quality = cfg.quality
   end
-  local args = { "goanime-stream" }
+  local args = { util.shellQuote(bin) }
   if source ~= "all" then
     args[#args + 1] = "--source " .. source
   end
@@ -345,19 +471,36 @@ function onWatch()
     epNum = "1"
   end
   local cfg = config()
+  local bin = streamBinary()
   local cmd
-  if noctalia.commandExists("goanime-stream") == true then
-    cmd = streamCliCmd(spec, cfg, epNum)
+  local note
+  if bin ~= nil then
+    cmd = streamCliCmd(spec, cfg, epNum, bin)
+    if streamInstallSent then
+      streamInstallSent = false
+      noctalia.notify(L("title"), L("stream.ready"))
+    end
+    streamCleanup()
   else
     cmd = streamOneLiner(streamParts(spec, cfg, epNum))
     if cmd == nil then
       notifyStatus("status.no_cache")
       return
     end
+    local st = streamEnsure()
+    if st == "started" then
+      streamInstallSent = true
+      note = tr("stream.installing")
+      noctalia.notify(L("title"), L("stream.installing"))
+    elseif st == "building" then
+      note = tr("stream.building")
+    elseif st == "no-toolchain" then
+      note = tr("stream.needs_toolchain")
+    end
   end
   addHistory(goanimeQuery())
   noctalia.runAsync(cmd)
-  statusMsg = ""
+  statusMsg = note or ""
   render()
   noctalia.notify(L("title"), tr("status.watching", { q = goanimeQuery() }))
 end
@@ -1149,6 +1292,19 @@ end
 
 function onOpen(_)
   loadHistory()
+  -- A previous session may have left a goanime-stream build running; tell the
+  -- user as soon as the panel notices the binary is finally there.
+  local marker = streamBuildMarker()
+  local hadBuild = marker ~= nil and noctalia.fileExists(marker)
+  if streamInstallSent or hadBuild then
+    if streamBinary() ~= nil then
+      streamInstallSent = false
+      streamCleanup()
+      noctalia.notify(L("title"), L("stream.ready"))
+    elseif hadBuild then
+      streamCleanup() -- stale marker (build failed) — the next Watch retries
+    end
+  end
   local pending = noctalia.state.get("goanime_pending_query")
   if type(pending) == "string" and pending ~= "" then
     raw = pending

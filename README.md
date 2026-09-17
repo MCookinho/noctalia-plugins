@@ -74,10 +74,13 @@ with a bar icon that opens it.
   Everything runs headless in the background.
 - **Watch streams straight to mpv, nothing saved** — Watch (and episode chips)
   resolve the episode to its direct stream URL and open mpv instantly through
-  **`goanime-stream`** (an optional helper built from GoAnime's own SDK; see
-  `goanime-stream/README.md`). If it isn't installed, the panel falls back to a
-  temporary cache that is deleted after playback. Either way nothing is saved.
-  Download / Download all keep files in the downloads folder.
+  **`goanime-stream`** (a helper built from GoAnime's own SDK; source ships
+  inside the plugin — see `goanime-tools/stream/README.md`). The panel
+  **compiles it automatically in the background on the first Watch**
+  (needs `git` + `go`) into the plugin's data folder and notifies you when
+  it's ready; until then it falls back to a temporary cache that is deleted
+  after playback. Either way nothing is saved. Download / Download all keep
+  files in the downloads folder.
 - History of past searches is stored per-plugin; the downloads folder opens
   automatically when a download starts (toggleable).
 - Settings: bar icon glyph, default source, default quality, download folder.
@@ -86,4 +89,6 @@ with a bar icon that opens it.
 
 Everything runs from the panel — no terminal windows are opened.
 Requires the `goanime` binary and a player (`mpv`) on `PATH`. For true
-zero-download streaming also build the optional `goanime-stream` helper.
+zero-download streaming the panel compiles the bundled `goanime-stream` helper
+on the first Watch (needs `git` + `go`, or install it yourself — see
+`goanime-tools/stream/README.md`).

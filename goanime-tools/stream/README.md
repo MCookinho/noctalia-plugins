@@ -19,22 +19,31 @@ GoAnime's internal packages can only be imported from *inside* the GoAnime
 module, this helper is compiled into the module tree by `build.sh` and shipped
 as a standalone binary.
 
-## Install
+## Install — automatic from the panel (no manual step)
+
+The helper ships **inside this plugin** (`stream/main.go` + `stream/build.sh`).
+The first time you click **Watch** without a `goanime-stream` binary on `PATH`,
+the panel compiles it in the background into `<pluginDataDir>/bin` and notifies
+you as soon as it is ready:
+
+- needs `git` and `go >= 1.27.1` (GoAnime's go.mod) plus network — the first
+  build clones GoAnime `v1.8.7` and downloads the module dependencies (includes
+  playwright-go, so allow a few minutes);
+- while it compiles, **Watch keeps working** through the temporary-cache mode
+  (download to cache → mpv → delete cache);
+- after that, Watch streams directly — nothing on disk. The panel prefers a
+  `goanime-stream` on `PATH` (e.g. system/`go` installs), then its own copy.
+
+## Install — manual
 
 ```bash
-cd goanime-stream
+cd goanime-tools/stream
 ./build.sh            # installs to ~/.local/bin
 # or: ./build.sh /usr/local/bin
 ```
 
-Requirements: `git`, `go >= 1.27.1` (GoAnime's go.mod), network. The first
-build clones GoAnime `v1.8.7` and downloads the module dependencies (includes
-playwright-go, so allow a few minutes).
-
-Make sure the install directory is in your `PATH`. The Noctalia panel uses
-`goanime-stream` automatically when it finds it; otherwise it falls back to the
-temporary-cache streaming mode (download to cache → mpv → delete cache), which
-needs no extra tools.
+Make sure the install directory is in your `PATH` (or let the panel keep its
+own copy in the plugin data dir).
 
 ## Usage (manual)
 
@@ -60,3 +69,6 @@ goanime-stream "jujutsu kaisen" 24
 ```bash
 rm ~/.local/bin/goanime-stream   # or wherever it was installed
 ```
+
+To clear the panel's own copy (auto-built), delete the `bin` folder it created
+inside the plugin data directory (visible in the plugin's settings/logs).
