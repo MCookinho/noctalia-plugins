@@ -31,6 +31,7 @@ local qualityIndex = 0
 local epText = ""
 local statusMsg = ""
 local history = {}
+local showHistory = true
 local selected = nil
 local results = {}
 local searching = false
@@ -90,6 +91,42 @@ local function addHistory(query)
     table.remove(history)
   end
   saveHistory()
+end
+
+-- History is shown by default; a panel toggle (header of the history section)
+-- hides it and remembers the choice in the plugin data dir, like history.json.
+local histVisibleFile = nil
+
+local function historyVisiblePath()
+  if histVisibleFile ~= nil then
+    return histVisibleFile
+  end
+  local dir = noctalia.pluginDataDir()
+  if type(dir) == "string" and dir ~= "" then
+    histVisibleFile = dir .. "/history-visible.json"
+  else
+    histVisibleFile = ""
+  end
+  return histVisibleFile
+end
+
+local function loadHistoryVisible()
+  local p = historyVisiblePath()
+  if p == "" then
+    return
+  end
+  local text = noctalia.readFile(p)
+  if text == "false" then
+    showHistory = false
+  end
+end
+
+local function saveHistoryVisible()
+  local p = historyVisiblePath()
+  if p == "" then
+    return
+  end
+  noctalia.writeFile(p, showHistory and "true" or "false")
 end
 
 local function config()
@@ -1142,10 +1179,8 @@ function buildActions(cfg)
   return actions
 end
 
-function buildHistorySection()
-  local children = {
-    ui.label({ text = L("history.title"), fontSize = 13, fontWeight = "medium", color = "on_surface" }),
-  }
+function buildHistoryEntries()
+  local children = {}
   if #history == 0 then
     children[#children + 1] = ui.label({
       text = L("history.empty"),
@@ -1168,6 +1203,34 @@ function buildHistorySection()
     end
   end
   return ui.column({ gap = 6, align = "stretch" }, children)
+end
+
+-- Collapsible history: the toggle row stays visible so the section can always
+-- be brought back.
+function buildHistorySection()
+  return ui.column({ gap = 6, align = "stretch" }, {
+    ui.row({ gap = 8, align = "center" }, {
+      ui.toggle({
+        checked = showHistory,
+        tooltip = L("history.toggle"),
+        onChange = "onToggleHistory",
+      }),
+      ui.label({
+        text = L("history.title"),
+        fontSize = 13,
+        fontWeight = "medium",
+        color = "on_surface",
+        flexGrow = 1,
+      }),
+    }),
+    showHistory and buildHistoryEntries() or nil,
+  })
+end
+
+function onToggleHistory(value)
+  showHistory = value == true
+  saveHistoryVisible()
+  render()
 end
 
 function onResume(query)
@@ -1292,6 +1355,7 @@ end
 
 function onOpen(_)
   loadHistory()
+  loadHistoryVisible()
   -- A previous session may have left a goanime-stream build running; tell the
   -- user as soon as the panel notices the binary is finally there.
   local marker = streamBuildMarker()

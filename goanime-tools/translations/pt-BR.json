@@ -16,6 +16,7 @@
   "open.downloads": "Abrir downloads",
   "history.title": "Histórico",
   "history.empty": "Nada por aqui ainda — busque um anime para começar.",
+  "history.toggle": "Mostrar ou ocultar histórico",
   "status.downloading": "Baixando {{q}} pelo GoAnime…",
   "status.watching": "Transmitindo {{q}} — o mpv abre assim que o episódio estiver pronto…",
   "status.no_goanime": "GoAnime CLI não encontrado — instale o goanime primeiro",
