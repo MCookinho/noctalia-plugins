@@ -1,5 +1,5 @@
 --!nonstrict
--- GoAnime Tools panel.
+-- Watch Anime panel.
 --
 -- Search an anime (AniList primary, Kitsu fallback - both key-free and
 -- stable), browse pretty result cards with poster, synopsis, genres and an

@@ -1,5 +1,5 @@
 {
-  "title": "GoAnime Tools",
+  "title": "Watch Anime",
   "query.placeholder": "Anime/series… e.g. jujutsu kaisen",
   "search.button": "Search",
   "source.label": "Source",
@@ -66,6 +66,6 @@
   "settings.open_after.label": "Open folder after download",
   "settings.open_after.description": "Open the downloads folder after a download finishes starting.",
   "settings.bar.glyph.label": "Bar icon",
-  "settings.bar.glyph.description": "Glyph used by the GoAnime Tools icon on the bar.",
+  "settings.bar.glyph.description": "Glyph used by the Watch Anime icon on the bar.",
   "clear.button": "Clear"
 }

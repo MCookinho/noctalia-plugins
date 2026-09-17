@@ -1,5 +1,5 @@
 --!nonstrict
--- Shared plumbing for GoAnime Tools: shell quoting, JSON and HTTP helpers.
+-- Shared plumbing for Watch Anime: shell quoting, JSON and HTTP helpers.
 local M = {}
 
 local function makeRequest(url, method, body, headers, opts)

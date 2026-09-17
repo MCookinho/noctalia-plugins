@@ -13,9 +13,9 @@ tags = ["osint", "security", "utility", "panel", "launcher"]
 
 [[plugin]]
 id = "mcookinho/goanime-tools"
-name = "GoAnime Tools"
-version = "1.6.2"
-updated_at = 1789720200
+name = "Watch Anime"
+version = "1.6.3"
+updated_at = 1789720300
 added_at = 1789347310
 author = "mcookinho"
 license = "MIT"

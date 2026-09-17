@@ -54,7 +54,7 @@ ethical purposes, and respect local privacy laws (e.g. LGPD).
 Open the panel with `Shift+Space` (or your launcher) and type `/osint <query>`,
 or just open it via the Noctalia dashboard.
 
-## GoAnime Tools (`mcookinho/goanime-tools`)
+## Watch Anime (`mcookinho/goanime-tools`)
 
 Pretty panel around the [GoAnime CLI](https://github.com/alvarorichard/GoAnime),
 with a bar icon that opens it.

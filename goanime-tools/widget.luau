@@ -1,5 +1,5 @@
 --!nonstrict
--- Bar widget: one icon that opens the GoAnime Tools panel.
+-- Bar widget: one icon that opens the Watch Anime panel.
 local util = require("./lib/util.luau")
 
 local function render()
