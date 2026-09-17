@@ -1,9 +1,10 @@
 --!nonstrict
 -- Bar widget: one icon that opens the GoAnime Tools panel.
+local util = require("./lib/util.luau")
 
 local function render()
   barWidget.setGlyph(noctalia.getConfig("glyph"))
-  barWidget.setTooltip(noctalia.tr("title"))
+  barWidget.setTooltip(util.tr("title"))
 end
 
 function update()

@@ -2,7 +2,7 @@
 id = "mcookinho/osint-tools"
 name = "OSINT Tools"
 version = "1.3.0"
-updated_at = 1789345628
+updated_at = 1789663927
 added_at = 1789335185
 author = "mcookinho"
 license = "MIT"
@@ -14,8 +14,8 @@ tags = ["osint", "security", "utility", "panel", "launcher"]
 [[plugin]]
 id = "mcookinho/goanime-tools"
 name = "GoAnime Tools"
-version = "1.2.1"
-updated_at = 1789662656
+version = "1.3.0"
+updated_at = 1789663927
 added_at = 1789347310
 author = "mcookinho"
 license = "MIT"

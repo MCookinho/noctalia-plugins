@@ -13,11 +13,11 @@ local SOURCE_KEYS = { "source.all", "source.allanime", "source.animefire", "sour
 local QUALITIES = { "best", "worst", "1080p", "720p", "480p" }
 
 local function L(key)
-  return noctalia.tr(key)
+  return util.tr(key)
 end
 
 local function tr(key, subst)
-  return noctalia.tr(key, subst)
+  return util.tr(key, subst)
 end
 
 local raw = ""

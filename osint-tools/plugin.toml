@@ -36,6 +36,18 @@ glyph = "user-search"
 include_in_global_search = false
 
 [[setting]]
+key = "language"
+type = "select"
+label_key = "settings.language.label"
+description_key = "settings.language.description"
+default = "default"
+options = [
+    { value = "default", label_key = "settings.language.default" },
+    { value = "en", label_key = "settings.language.en" },
+    { value = "pt-BR", label_key = "settings.language.pt-BR" },
+]
+
+[[setting]]
 key = "site_checks"
 type = "bool"
 label_key = "settings.site_checks.label"

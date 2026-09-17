@@ -1,9 +1,10 @@
 --!nonstrict
 -- Launcher provider: type `/goanime <query>` to open the GoAnime panel pre-filled.
+local util = require("./lib/util.luau")
 local lastQuery = ""
 
-local function L(key)
-  return noctalia.tr(key)
+local function L(key, subst)
+  return util.tr(key, subst)
 end
 
 function onQuery(query)
@@ -20,7 +21,7 @@ function onQuery(query)
   end
   launcher.setResults(query, {{
     id = "run",
-    title = noctalia.tr("launcher.title", { q = lastQuery }),
+    title = util.tr("launcher.title", { q = lastQuery }),
     subtitle = L("launcher.subtitle"),
     glyph = "movie",
   }})

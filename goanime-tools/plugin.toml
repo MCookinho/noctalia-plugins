@@ -1,6 +1,6 @@
 id = "mcookinho/goanime-tools"
 name = "GoAnime Tools"
-version = "1.2.1"
+version = "1.3.0"
 plugin_api = 9
 author = "mcookinho"
 license = "MIT"
@@ -35,6 +35,18 @@ entry = "launcher.luau"
 prefix = "goanime"
 glyph = "movie"
 include_in_global_search = false
+
+[[setting]]
+key = "language"
+type = "select"
+label_key = "settings.language.label"
+description_key = "settings.language.description"
+default = "default"
+options = [
+    { value = "default", label_key = "settings.language.default" },
+    { value = "en", label_key = "settings.language.en" },
+    { value = "pt-BR", label_key = "settings.language.pt-BR" },
+]
 
 [[setting]]
 key = "source_default"

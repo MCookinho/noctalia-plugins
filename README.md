@@ -75,6 +75,8 @@ with a bar icon that opens it.
 - History of past searches is stored per-plugin; the downloads folder opens
   automatically when a download starts (toggleable).
 - Settings: bar icon glyph, default source, default quality, download folder.
+  Language follows Noctalia by default; Settings → Plugins lets you force the
+  plugin UI to English or Brazilian Portuguese.
 
 Everything runs from the panel — no terminal windows are opened.
 Requires the `goanime` binary and a player (`mpv`) on `PATH`.

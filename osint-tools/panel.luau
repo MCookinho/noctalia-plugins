@@ -21,8 +21,8 @@ local NODE_W = 116
 local NODE_GAP = 10
 local RING_MAX = 4
 
-local function L(key)
-  return noctalia.tr(key)
+local function L(key, subst)
+  return util.tr(key, subst)
 end
 
 local raw = ""
@@ -570,7 +570,7 @@ local function deriveThreads()
     url = "https://www.threads.net/@" .. usernameQuery .. "/",
     avatar = avatar,
     rows = {
-      { label = noctalia.tr("row.handle"), value = "@" .. usernameQuery },
+      { label = util.tr("row.handle"), value = "@" .. usernameQuery },
     },
     note = "note_heuristic",
   })
@@ -589,9 +589,9 @@ local function analyzeDone()
       end
     end
   end
-  lastSummary = noctalia.tr("summary.found", { n = tostring(foundTotal), t = tostring(cardTotal) })
+  lastSummary = util.tr("summary.found", { n = tostring(foundTotal), t = tostring(cardTotal) })
   if #peopleNodes > 0 then
-    lastSummary = lastSummary .. " · " .. noctalia.trp("summary.people", #peopleNodes, {})
+    lastSummary = lastSummary .. " · " .. util.trp("summary.people", #peopleNodes, {})
   end
   render()
 end
