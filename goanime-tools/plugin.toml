@@ -1,6 +1,6 @@
 id = "mcookinho/goanime-tools"
 name = "GoAnime Tools"
-version = "1.4.0"
+version = "1.5.0"
 plugin_api = 9
 author = "mcookinho"
 license = "MIT"

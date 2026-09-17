@@ -68,14 +68,16 @@ with a bar icon that opens it.
   **Kitsu** fallback (both key-free and reliable): poster, type, year, score,
   synopsis, genres. Pick a show to see an episode grid.
 - **Episodes** — the full episode list as clickable chips; click one to stream
-  it (temp cache + mpv, no terminal) or download it.
+  it (online via mpv, no terminal) or download it.
 - **Watch / Download / Download all** — pick source (AniDB / AnimeFire /
   Goyabu / all) and quality, use single episode, a range (`1-5`) or `all`.
   Everything runs headless in the background.
-- **Watch streams, nothing is saved** — Watch (and episode chips) fetch the
-  episode into a temporary cache, open mpv the moment it is ready, and delete
-  the cache after playback. Download / Download all keep files in the
-  downloads folder.
+- **Watch streams straight to mpv, nothing saved** — Watch (and episode chips)
+  resolve the episode to its direct stream URL and open mpv instantly through
+  **`goanime-stream`** (an optional helper built from GoAnime's own SDK; see
+  `goanime-stream/README.md`). If it isn't installed, the panel falls back to a
+  temporary cache that is deleted after playback. Either way nothing is saved.
+  Download / Download all keep files in the downloads folder.
 - History of past searches is stored per-plugin; the downloads folder opens
   automatically when a download starts (toggleable).
 - Settings: bar icon glyph, default source, default quality, download folder.
@@ -83,4 +85,5 @@ with a bar icon that opens it.
   plugin UI to English or Brazilian Portuguese.
 
 Everything runs from the panel — no terminal windows are opened.
-Requires the `goanime` binary and a player (`mpv`) on `PATH`.
+Requires the `goanime` binary and a player (`mpv`) on `PATH`. For true
+zero-download streaming also build the optional `goanime-stream` helper.

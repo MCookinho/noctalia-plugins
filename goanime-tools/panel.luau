@@ -230,9 +230,12 @@ local function logAppend(cmd)
   return "nohup " .. cmd .. " >/dev/null 2>&1 &"
 end
 
--- ---- "Watch" streams: fetch the episode into a temporary cache, open the
--- player (mpv) the moment it is ready, and delete the cache after playback.
--- Nothing is saved to the downloads folder from this path.
+-- ---- "Watch" streams:
+-- Preferred path: goanime-stream (optional helper) resolves the episode to its
+-- direct stream URL and opens mpv on it — true online playback, nothing on
+-- disk. Fallback: fetch the episode into a temporary cache, open the player
+-- (mpv) the moment it is ready, and delete the cache after playback. Either
+-- way nothing is saved to the downloads folder.
 
 local watchCacheBase = nil
 
@@ -302,6 +305,26 @@ local function streamOneLiner(parts)
   return "nohup bash -c " .. util.shellQuote(oneLiner) .. " >/dev/null 2>&1 &"
 end
 
+local function streamCliCmd(spec, cfg, epNum)
+  local source = SOURCES[sourceIndex + 1]
+  if source == nil then
+    source = cfg.source
+  end
+  local quality = QUALITIES[qualityIndex + 1]
+  if quality == nil then
+    quality = cfg.quality
+  end
+  local args = { "goanime-stream" }
+  if source ~= "all" then
+    args[#args + 1] = "--source " .. source
+  end
+  args[#args + 1] = "--quality " .. util.shellQuote(quality)
+  args[#args + 1] = util.shellQuote(goanimeQuery())
+  args[#args + 1] = epNum
+  -- < /dev/null guarantees goanime-stream never hangs waiting for a TTY.
+  return logAppend(table.concat(args, " ") .. " < /dev/null")
+end
+
 function onWatch()
   local query = currentQuery()
   if query == "" and not (selected and selected.query ~= "") then
@@ -322,10 +345,15 @@ function onWatch()
     epNum = "1"
   end
   local cfg = config()
-  local cmd = streamOneLiner(streamParts(spec, cfg, epNum))
-  if cmd == nil then
-    notifyStatus("status.no_cache")
-    return
+  local cmd
+  if noctalia.commandExists("goanime-stream") == true then
+    cmd = streamCliCmd(spec, cfg, epNum)
+  else
+    cmd = streamOneLiner(streamParts(spec, cfg, epNum))
+    if cmd == nil then
+      notifyStatus("status.no_cache")
+      return
+    end
   end
   addHistory(goanimeQuery())
   noctalia.runAsync(cmd)

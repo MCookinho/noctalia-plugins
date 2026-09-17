@@ -43,7 +43,7 @@
   "launcher.hint_subtitle": "Type an anime/series name",
   "launcher.title": "Search {{q}} with GoAnime",
   "launcher.subtitle": "Open the panel and browse episodes",
-  "footer.note": "Everything runs from this panel — no terminal needed. Watch streams to a temporary cache and deletes it after playback, so nothing is saved. Download / Download all save episodes to the downloads folder and keep running in the background.",
+  "footer.note": "Everything runs from this panel — no terminal needed. Watch streams straight to mpv online (via the optional goanime-stream helper, falling back to a temporary cache that is deleted after playback) so nothing is saved. Download / Download all save episodes to the downloads folder and keep running in the background.",
   "settings.language.label": "Language",
   "settings.language.description": "Interface language. Default follows Noctalia's language.",
   "settings.language.default": "Default (Noctalia)",
