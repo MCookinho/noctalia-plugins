@@ -14,8 +14,8 @@ tags = ["osint", "security", "utility", "panel", "launcher"]
 [[plugin]]
 id = "mcookinho/goanime-tools"
 name = "GoAnime Tools"
-version = "1.6.1"
-updated_at = 1789720100
+version = "1.6.2"
+updated_at = 1789720200
 added_at = 1789347310
 author = "mcookinho"
 license = "MIT"

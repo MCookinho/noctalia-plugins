@@ -1343,13 +1343,6 @@ render = function()
   children[#children + 1] = ui.separator({ spacing = 2 })
   children[#children + 1] = buildHistorySection()
 
-  children[#children + 1] = ui.label({
-    text = L("footer.note"),
-    fontSize = 11,
-    color = "on_surface_variant",
-    maxLines = 3,
-  })
-
   panel.render(ui.column({ flexGrow = 1, gap = 12, align = "stretch" }, children))
 end
 
